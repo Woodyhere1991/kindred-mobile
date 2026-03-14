@@ -84,10 +84,16 @@ export default function PrivacyScreen() {
           protect the safety of our users.
         </Text>
 
-        <Text style={styles.heading}>4. Data Security</Text>
+        <Text style={styles.heading}>4. Data Storage and Security</Text>
         <Text style={styles.body}>
-          We use industry-standard security measures to protect your data, including encryption in
-          transit (TLS) and at rest. Authentication is handled securely through our backend provider.
+          Your data is stored securely using Supabase, our backend infrastructure provider, with
+          servers located in the Oceania (Sydney) region. All data is encrypted in transit using TLS
+          and at rest. Authentication is handled securely through our backend provider.
+          {'\n\n'}
+          The App uses local storage on your device (AsyncStorage and SecureStore) to maintain your
+          session and preferences. This data remains on your device and is not transmitted to third
+          parties.
+          {'\n\n'}
           However, no method of electronic transmission or storage is 100% secure, and we cannot
           guarantee absolute security.
         </Text>
@@ -124,7 +130,15 @@ export default function PrivacyScreen() {
           constitutes acceptance of the updated policy.
         </Text>
 
-        <Text style={styles.heading}>9. Contact Us</Text>
+        <Text style={styles.heading}>9. Complaints</Text>
+        <Text style={styles.body}>
+          If you are not satisfied with our response to a privacy concern, you have the right to
+          lodge a complaint with the Office of the New Zealand Privacy Commissioner:{'\n\n'}
+          Website: privacy.org.nz{'\n'}
+          Phone: 0800 803 909
+        </Text>
+
+        <Text style={styles.heading}>10. Contact Us</Text>
         <Text style={styles.body}>
           If you have questions about this Privacy Policy or wish to exercise your privacy rights,
           please contact us at:{'\n\n'}Email: privacy@kindred.nz{'\n'}
