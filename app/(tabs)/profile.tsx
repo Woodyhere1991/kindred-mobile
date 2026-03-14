@@ -879,7 +879,7 @@ export default function ProfileScreen() {
             )}
 
             {verifyStep === 'preview' && (
-              <>
+              <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.verifyModalTitle}>Review & Submit</Text>
                 <Text style={styles.verifyModalDesc}>Check both photos are clear and your face is visible.</Text>
                 <View style={styles.verifyPreviewRow}>
@@ -901,7 +901,7 @@ export default function ProfileScreen() {
                 <TouchableOpacity style={styles.verifyCancelBtn} onPress={resetVerifyModal}>
                   <Text style={styles.verifyCancelText}>Cancel</Text>
                 </TouchableOpacity>
-              </>
+              </ScrollView>
             )}
 
             {verifyStep === 'submitting' && (
@@ -1062,7 +1062,7 @@ const styles = StyleSheet.create({
 
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(27,42,61,0.4)', justifyContent: 'center' },
-  verifyModal: { backgroundColor: '#fff', borderRadius: 24, padding: 24, margin: 20 },
+  verifyModal: { backgroundColor: '#fff', borderRadius: 24, padding: 24, margin: 20, maxHeight: '80%' as any },
   verifyModalTitle: { fontSize: 20, fontWeight: '700', color: '#1B2A3D', marginBottom: 4 },
   verifyModalDesc: { fontSize: 13, color: '#8B9AAD', marginBottom: 16, lineHeight: 18 },
   verifyOption: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderWidth: 2, borderColor: '#F2EDE7', borderRadius: 14, marginBottom: 8, backgroundColor: '#FBF9F6' },
@@ -1081,7 +1081,7 @@ const styles = StyleSheet.create({
   verifyPreviewRow: { flexDirection: 'row' as const, gap: 12, marginBottom: 16 },
   verifyPreviewCol: { flex: 1, alignItems: 'center' as const },
   verifyPreviewLabel: { fontSize: 12, fontWeight: '600' as const, color: '#8B9AAD', marginBottom: 6 },
-  verifyPreviewImg: { width: '100%' as any, aspectRatio: 0.75, borderRadius: 12, backgroundColor: '#F2EDE7' },
+  verifyPreviewImg: { width: '100%' as any, aspectRatio: 1, borderRadius: 12, backgroundColor: '#F2EDE7' },
 
   // Plus upsell
   plusBanner: { backgroundColor: '#FFF8E1', borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1.5, borderColor: '#D4A843' },

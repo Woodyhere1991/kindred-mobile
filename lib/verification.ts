@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { compressImage } from './imageUtils'
 
 export interface IdVerification {
   id: string
@@ -24,7 +25,8 @@ async function uploadVerificationPhoto(
   uri: string,
 ): Promise<string> {
   const path = `${userId}/${filename}`
-  const response = await fetch(uri)
+  const compressed = await compressImage(uri)
+  const response = await fetch(compressed)
   const blob = await response.blob()
 
   const { error } = await supabase.storage
