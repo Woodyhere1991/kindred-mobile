@@ -227,7 +227,7 @@ export default function ActivityScreen() {
             .from('matches')
             .select('id, item_id')
             .or(`giver_id.eq.${userId},receiver_id.eq.${userId}`)
-            .eq('status', 'pending')
+            .in('status', ['pending', 'accepted'])
             .in('item_id', items.map(i => i.id))
           const offerMap: Record<string, string> = {}
           for (const o of myOffers || []) offerMap[o.item_id] = o.id
@@ -2046,7 +2046,7 @@ export default function ActivityScreen() {
               </View>
             )}
 
-            {browseItems_.filter(b => browseType === 'all' || b.type === browseType).map(b => {
+            {browseItems_.filter(b => (browseType === 'all' || b.type === browseType) && !myPendingOfferIds[b.id]).map(b => {
               const photos = b.item_photos || []
               const browseProfile = b.profiles
               const reliability = browseProfile && browseProfile.total_exchanges > 0
