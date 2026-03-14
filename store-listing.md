@@ -27,7 +27,7 @@ My Activity — Track your listings, incoming offers, and outgoing requests all 
 
 Browse Nearby — See what's available in your neighbourhood. Filter by category and distance to find exactly what you need from people close by.
 
-Kindred Points & Leaderboard — Earn points every time you give, lend, or complete an exchange. Level up through tiers: Starter, Mate, Baller, MVP, and Icon. Compete with your neighbours on the suburb leaderboard.
+Kindred Points & Leaderboard — Earn points every time you give, lend, or complete an exchange. Level up through tiers: Newcomer, Open, Connected, Elevated, and Kindred Spirit. Compete with your neighbours on the suburb leaderboard.
 
 Safe Messaging — Chat with other members directly in the app. Every conversation is tied to a specific item, so there's always context.
 

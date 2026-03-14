@@ -104,11 +104,11 @@ export default function PointsScreen() {
                     <Text style={styles.tierMin}>{tier.min} KP</Text>
                   </View>
                   <Text style={styles.tierPerks}>
-                    {tier.name === 'Starter' ? 'Community feed, basic matching, create listings (3/day)' :
-                     tier.name === 'Mate' ? 'Mate badge on profile, priority placement in browse results' :
-                     tier.name === 'Baller' ? '5 listings/day, Baller badge, early access to new features' :
-                     tier.name === 'MVP' ? '7 listings/day, boosted listings in browse, custom profile colour' :
-                     '10 listings/day, Icon crown badge, entered in monthly giveaway draw'}
+                    {tier.name === 'Newcomer' ? 'Community feed, basic matching, create listings (3/day)' :
+                     tier.name === 'Open' ? 'Open badge on profile, priority placement in browse results' :
+                     tier.name === 'Connected' ? '5 listings/day, Connected badge, early access to new features' :
+                     tier.name === 'Elevated' ? '7 listings/day, boosted listings in browse, custom profile colour' :
+                     '10 listings/day, Kindred Spirit crown, entered in monthly giveaway draw'}
                   </Text>
                 </View>
               </View>
