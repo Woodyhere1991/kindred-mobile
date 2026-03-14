@@ -23,15 +23,15 @@ HOW IT WORKS
 
 FEATURES
 
-Community Feed — See what's being shared in your neighbourhood right now. Filter by category, distance, or whether items are free to keep or available to borrow.
+My Activity — Track your listings, incoming offers, and outgoing requests all in one place. Manage your items and see the status of every exchange.
 
-Kindred Points — Earn points every time you give, lend, or complete an exchange. Level up through tiers: Seed, Sprout, Bloom, Tree, and Forest. Points unlock future perks and rewards.
+Browse Nearby — See what's available in your neighbourhood. Filter by category and distance to find exactly what you need from people close by.
+
+Kindred Points & Leaderboard — Earn points every time you give, lend, or complete an exchange. Level up through tiers: Seed, Sprout, Bloom, Tree, and Forest. Compete with your neighbours on the suburb leaderboard.
 
 Safe Messaging — Chat with other members directly in the app. Every conversation is tied to a specific item, so there's always context.
 
 Trust & Safety — Optional ID verification, user blocking, and reporting tools. Set an emergency contact for peace of mind when meeting up.
-
-Location-Based — Kindred shows you what's nearby. Set your home location or use GPS to find items and neighbours close to you.
 
 Notifications — Get notified when someone claims your item, sends you a message, or when a match is arranged. Never miss an exchange.
 
