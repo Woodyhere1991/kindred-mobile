@@ -1124,16 +1124,7 @@ export default function ActivityScreen() {
       if (isNeed) {
         showAlert('Offer Sent!', `${ownerName} will review what you're offering. If they're keen, you'll be connected in Messages.`)
       } else {
-        if (Platform.OS === 'web') {
-          if (confirm(`Request Sent!\nYou've requested "${cap(item.title)}". ${ownerName} will review your request. Chat with them in Messages.`)) {
-            router.navigate('/(tabs)/messages')
-          }
-        } else {
-          Alert.alert('Request Sent!', `${ownerName} will review your request for "${cap(item.title)}". Chat with them in Messages.`, [
-            { text: 'Go to Messages', onPress: () => router.navigate('/(tabs)/messages') },
-            { text: 'Stay Here', style: 'cancel' },
-          ])
-        }
+        showAlert('Request Sent!', `${ownerName} will review your request for "${cap(item.title)}". You'll be notified when they respond.`)
       }
     } catch (err: any) {
       showAlert('Error', err.message || 'Failed to send offer')
