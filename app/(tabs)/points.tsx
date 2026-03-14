@@ -104,11 +104,11 @@ export default function PointsScreen() {
                     <Text style={styles.tierMin}>{tier.min} KP</Text>
                   </View>
                   <Text style={styles.tierPerks}>
-                    {tier.name === 'Seedling' ? 'Community feed, basic matching, create listings (3/day)' :
-                     tier.name === 'Helper' ? 'Helper badge on profile, priority placement in browse results' :
-                     tier.name === 'Guardian' ? '5 listings/day, Guardian shield badge, early access to new features' :
-                     tier.name === 'Beacon' ? '7 listings/day, boosted listings in browse, custom profile colour' :
-                     '10 listings/day, Luminary crown badge, entered in monthly giveaway draw'}
+                    {tier.name === 'Starter' ? 'Community feed, basic matching, create listings (3/day)' :
+                     tier.name === 'Mate' ? 'Mate badge on profile, priority placement in browse results' :
+                     tier.name === 'Baller' ? '5 listings/day, Baller badge, early access to new features' :
+                     tier.name === 'MVP' ? '7 listings/day, boosted listings in browse, custom profile colour' :
+                     '10 listings/day, Icon crown badge, entered in monthly giveaway draw'}
                   </Text>
                 </View>
               </View>

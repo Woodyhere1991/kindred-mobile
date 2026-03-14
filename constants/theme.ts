@@ -31,11 +31,11 @@ export const Radius = {
 }
 
 export const KP_TIERS = [
-  { name: 'Seedling', min: 0, icon: '🌱', color: Colors.green, perks: 'Community feed, basic matching', dailyLimit: 3 },
-  { name: 'Helper', min: 200, icon: '💙', color: Colors.blue, perks: 'Helper badge, priority in browse', dailyLimit: 3 },
-  { name: 'Guardian', min: 1000, icon: '🛡️', color: Colors.warm, perks: '5 listings/day, early access', dailyLimit: 5 },
-  { name: 'Beacon', min: 5000, icon: '✨', color: Colors.coral, perks: 'Boosted listings, custom profile', dailyLimit: 7 },
-  { name: 'Luminary', min: 15000, icon: '🌟', color: '#C77DBA', perks: '10 listings/day, monthly giveaway', dailyLimit: 10 },
+  { name: 'Starter', min: 0, icon: '🌱', color: Colors.green, perks: 'Community feed, basic matching', dailyLimit: 3 },
+  { name: 'Mate', min: 200, icon: '⚡', color: Colors.blue, perks: 'Mate badge, priority in browse', dailyLimit: 3 },
+  { name: 'Baller', min: 1000, icon: '🔥', color: Colors.warm, perks: '5 listings/day, early access', dailyLimit: 5 },
+  { name: 'MVP', min: 5000, icon: '💎', color: Colors.coral, perks: 'Boosted listings, custom profile', dailyLimit: 7 },
+  { name: 'Icon', min: 15000, icon: '👑', color: '#C77DBA', perks: '10 listings/day, monthly giveaway', dailyLimit: 10 },
 ] as const
 
 export const CATEGORIES = ['food', 'clothing', 'household', 'baby', 'furniture', 'service', 'other'] as const
