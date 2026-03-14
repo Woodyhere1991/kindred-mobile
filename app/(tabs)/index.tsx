@@ -499,24 +499,35 @@ export default function ActivityScreen() {
         }
       }
       // Smart match: find complementary items nearby (Plus only)
-      if (isPremium) {
-        try {
-          const matches = await findSmartMatches(newItem)
-          if (matches.length > 0) {
-            setItemMatchCounts(prev => ({ ...prev, [newItem.id]: matches }))
-            try {
-              await createNotification({
-                user_id: userId,
-                type: 'match',
-                title: 'Potential matches found!',
-                body: `We found ${matches.length} ${newItem.type === 'give' ? 'people who need' : 'items available'} near you that match "${cap(newItem.title)}"`,
-                item_id: newItem.id,
-              })
-              await refreshNotifications()
-            } catch {}
-          }
-        } catch {}
-      }
+      if (isPremium) try {
+        const matches = await findSmartMatches(newItem)
+        if (matches.length > 0) {
+          setItemMatchCounts(prev => ({ ...prev, [newItem.id]: matches }))
+          try {
+            // Notify the listing creator
+            await createNotification({
+              user_id: userId,
+              type: 'match',
+              title: 'Potential matches found!',
+              body: `We found ${matches.length} ${newItem.type === 'give' ? 'people who need' : 'items available'} near you that match "${cap(newItem.title)}"`,
+              item_id: newItem.id,
+            })
+            // Also notify the other side — let them know someone nearby has what they need (or needs what they have)
+            for (const match of matches) {
+              try {
+                await createNotification({
+                  user_id: match.user_id,
+                  type: 'match',
+                  title: newItem.type === 'give' ? 'Someone nearby is giving away what you need!' : 'Someone nearby needs what you have!',
+                  body: `"${cap(newItem.title)}" was just listed near you`,
+                  item_id: match.id,
+                })
+              } catch {}
+            }
+            await refreshNotifications()
+          } catch {}
+        }
+      } catch {}
       // Reset form
       setFormName(''); setFormNote('')
       setFormFoodChecked(false)
@@ -1282,7 +1293,7 @@ export default function ActivityScreen() {
                   )}
                 </View>
 
-                {formCategory === 'food' && (
+                {formCategory === 'food' && formType === 'give' && (
                   <TouchableOpacity
                     style={[styles.foodCheckRow]}
                     onPress={() => setFormFoodChecked(!formFoodChecked)}
@@ -1354,7 +1365,7 @@ export default function ActivityScreen() {
                   <TouchableOpacity
                     style={[styles.itemBtn, styles.itemBtnPrimary]}
                     onPress={handleSubmitForm}
-                    disabled={!formName.trim() || submitting || (formCategory === 'food' && !formFoodChecked)}
+                    disabled={!formName.trim() || submitting || (formCategory === 'food' && formType === 'give' && !formFoodChecked)}
                   >
                     <Text style={styles.itemBtnPrimaryText}>
                       {submitting ? 'Posting...' : `List (+5 KP)`}
