@@ -45,8 +45,18 @@ export async function submitVerification(
   selfieUri: string,
 ) {
   // Upload both photos
-  const idPhotoPath = await uploadVerificationPhoto(userId, `id_${Date.now()}.jpg`, idPhotoUri)
-  const selfiePath = await uploadVerificationPhoto(userId, `selfie_${Date.now()}.jpg`, selfieUri)
+  let idPhotoPath: string
+  let selfiePath: string
+  try {
+    idPhotoPath = await uploadVerificationPhoto(userId, `id_${Date.now()}.jpg`, idPhotoUri)
+  } catch (err: any) {
+    throw new Error(`ID photo upload failed: ${err.message || err}`)
+  }
+  try {
+    selfiePath = await uploadVerificationPhoto(userId, `selfie_${Date.now()}.jpg`, selfieUri)
+  } catch (err: any) {
+    throw new Error(`Selfie upload failed: ${err.message || err}`)
+  }
 
   // Create verification record
   const { data, error } = await supabase
@@ -59,7 +69,7 @@ export async function submitVerification(
     })
     .select()
     .single()
-  if (error) throw error
+  if (error) throw new Error(`Verification record failed: ${error.message}`)
 
   return data as IdVerification
 }
