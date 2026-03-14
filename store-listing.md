@@ -59,4 +59,7 @@ sharing, community, neighbours, give away, free stuff, lend, borrow, local, sust
 support@kindred.nz
 
 ## Privacy Policy URL
-https://kindred.nz/privacy.html
+https://woodyhere1991.github.io/kindred-mobile/privacy.html
+
+## Terms of Service URL
+https://woodyhere1991.github.io/kindred-mobile/terms.html
