@@ -1,22 +1,26 @@
 import { useState, useEffect } from 'react'
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, Platform, Alert } from 'react-native'
 import { useApp } from '../../lib/appContext'
-import { KP_TIERS, Colors } from '../../constants/theme'
-import { getSuburbLeaderboard, LeaderboardEntry } from '../../lib/leaderboard'
+import { KP_TIERS, Colors, getTierIcon } from '../../constants/theme'
+import { getSuburbLeaderboard, getTimedLeaderboard, LeaderboardEntry, LeaderboardPeriod } from '../../lib/leaderboard'
 
 const MEDAL = ['🥇', '🥈', '🥉']
 
 export default function PointsScreen() {
   const { points, currentTier, nextTier, tierProgress, myReliability, isPremium, suburb, userId, idVerified, profile } = useApp()
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [leaderboardPeriod, setLeaderboardPeriod] = useState<LeaderboardPeriod>('alltime')
 
   const myRelScore = myReliability.total === 0 ? null : Math.round((myReliability.completed / myReliability.total) * 100)
 
   useEffect(() => {
-    if (suburb) {
+    if (!suburb) { setLeaderboard([]); return }
+    if (leaderboardPeriod === 'alltime') {
       getSuburbLeaderboard(suburb).then(setLeaderboard).catch(console.error)
+    } else {
+      getTimedLeaderboard(suburb, leaderboardPeriod).then(setLeaderboard).catch(console.error)
     }
-  }, [suburb])
+  }, [leaderboardPeriod, suburb])
 
   return (
     <SafeAreaView style={styles.container}>
@@ -44,44 +48,64 @@ export default function PointsScreen() {
         </View>
 
         {/* Leaderboard */}
-        {suburb ? (
-          <>
-            <Text style={styles.sectionTitle}>Top Givers in {suburb}</Text>
-            <View style={styles.leaderCard}>
-              {leaderboard.length === 0 ? (
-                <View style={{ padding: 20, alignItems: 'center' }}>
-                  <Text style={{ fontSize: 28, marginBottom: 8 }}>🏆</Text>
-                  <Text style={{ fontSize: 13, color: '#8B9AAD', textAlign: 'center', lineHeight: 19 }}>
-                    No exchanges completed in {suburb} yet. Be the first to make it on the board!
+        {/* Leaderboard */}
+        <Text style={styles.sectionTitle}>Top Givers in {suburb || 'Your Area'}</Text>
+        <View style={styles.leaderToggleRow}>
+          {(['daily', 'weekly', 'monthly', 'alltime'] as LeaderboardPeriod[]).map(p => (
+            <TouchableOpacity
+              key={p}
+              style={[styles.leaderToggle, leaderboardPeriod === p && styles.leaderToggleActive]}
+              onPress={() => setLeaderboardPeriod(p)}
+            >
+              <Text style={[styles.leaderToggleText, leaderboardPeriod === p && styles.leaderToggleTextActive]}>
+                {p === 'alltime' ? 'All Time' : p.charAt(0).toUpperCase() + p.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={styles.leaderCard}>
+          {leaderboard.length === 0 ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <Text style={{ fontSize: 28, marginBottom: 8 }}>🏆</Text>
+              <Text style={{ fontSize: 13, color: '#8B9AAD', textAlign: 'center', lineHeight: 19 }}>
+                {leaderboardPeriod === 'alltime'
+                  ? `No exchanges completed in ${suburb || 'your area'} yet. Be the first!`
+                  : `No activity in ${suburb || 'your area'} ${leaderboardPeriod === 'daily' ? 'today' : leaderboardPeriod === 'weekly' ? 'this week' : 'this month'} yet. Be the first!`}
+              </Text>
+            </View>
+          ) : (
+            leaderboard.map((entry, i) => {
+              const isMe = entry.id === userId
+              return (
+                <View key={entry.id} style={[styles.leaderRow, i < leaderboard.length - 1 ? styles.earnRowBorder : undefined, isMe ? styles.leaderRowMe : undefined]}>
+                  <Text style={styles.leaderRank}>{i < 3 ? MEDAL[i] : `${i + 1}`}</Text>
+                  {entry.avatar_url ? (
+                    <Image source={{ uri: entry.avatar_url }} style={styles.leaderAvatar} />
+                  ) : (
+                    <View style={[styles.leaderAvatar, styles.leaderAvatarFallback]}>
+                      <Text style={{ fontSize: 14 }}>{(entry.display_name || '?').charAt(0).toUpperCase()}</Text>
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                      <Text style={{ fontSize: 11 }}>{getTierIcon(entry.points)}</Text>
+                      <Text style={[styles.leaderName, isMe ? { color: Colors.teal, fontWeight: '700' } : undefined]}>
+                        {entry.display_name ? entry.display_name.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'Anonymous'}{isMe ? ' (you)' : ''}
+                      </Text>
+                      {entry.is_premium && <Text style={{ fontSize: 10, color: '#D97706' }}>⭐Plus</Text>}
+                    </View>
+                    <Text style={styles.leaderStat}>
+                      {leaderboardPeriod === 'alltime' ? `${entry.completed_exchanges} exchanges` : `${entry.points} KP earned`}
+                    </Text>
+                  </View>
+                  <Text style={styles.leaderKp}>
+                    {leaderboardPeriod === 'alltime' ? `${entry.points} KP` : `${entry.completed_exchanges} exchanges`}
                   </Text>
                 </View>
-              ) : (
-                leaderboard.map((entry, i) => {
-                  const isMe = entry.id === userId
-                  return (
-                    <View key={entry.id} style={[styles.leaderRow, i < leaderboard.length - 1 ? styles.earnRowBorder : undefined, isMe ? styles.leaderRowMe : undefined]}>
-                      <Text style={styles.leaderRank}>{i < 3 ? MEDAL[i] : `${i + 1}`}</Text>
-                      {entry.avatar_url ? (
-                        <Image source={{ uri: entry.avatar_url }} style={styles.leaderAvatar} />
-                      ) : (
-                        <View style={[styles.leaderAvatar, styles.leaderAvatarFallback]}>
-                          <Text style={{ fontSize: 14 }}>{(entry.display_name || '?').charAt(0).toUpperCase()}</Text>
-                        </View>
-                      )}
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.leaderName, isMe ? { color: Colors.teal, fontWeight: '700' } : undefined]}>
-                          {entry.display_name ? entry.display_name.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'Anonymous'}{isMe ? ' (you)' : ''}
-                        </Text>
-                        <Text style={styles.leaderStat}>{entry.completed_exchanges} exchanges</Text>
-                      </View>
-                      <Text style={styles.leaderKp}>{entry.points} Kindness Points</Text>
-                    </View>
-                  )
-                })
-              )}
-            </View>
-          </>
-        ) : null}
+              )
+            })
+          )}
+        </View>
 
         {/* Journey */}
         <Text style={styles.sectionTitle}>Your Journey</Text>
@@ -152,7 +176,10 @@ export default function PointsScreen() {
         </View>
 
         {/* How to earn */}
-        <Text style={styles.sectionTitle}>How to Earn</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>How to Earn</Text>
+          {isPremium && <Text style={{ fontSize: 11, color: '#D4A843', fontWeight: '600' }}>All points doubled with ⭐Plus</Text>}
+        </View>
         <View style={styles.earnCard}>
           {[
             { a: 'Create a Listing', base: 5, d: 'Post something to give or something you need', i: '📝' },
@@ -162,7 +189,7 @@ export default function PointsScreen() {
             ...((myReliability.completed === 0) ? [{ a: 'First Exchange Bonus', base: 50, d: 'One-time bonus for your very first exchange', i: '🎉' }] : []),
             { a: '5-Star Rating Bonus', base: 10, d: 'When someone gives you a 5-star review', i: '⭐' },
             ...(!profile?.phone_verified ? [{ a: 'Verify Your Phone', base: 50, d: 'One-time bonus for phone verification', i: '📱' }] : []),
-            ...(!idVerified ? [{ a: 'Verify Your ID', base: 100, d: 'One-time bonus for ID verification', i: '🛡️' }] : []),
+            ...(!idVerified ? [{ a: 'Verify Your Identity', base: 100, d: 'One-time bonus for identity verification', i: '🛡️' }] : []),
           ].map((x, i, arr) => {
             const amt = isPremium ? x.base * 2 : x.base
             return (
@@ -172,10 +199,7 @@ export default function PointsScreen() {
                   <Text style={styles.earnAction}>{x.a}</Text>
                   <Text style={styles.earnDesc}>{x.d}</Text>
                 </View>
-                <View style={{ alignItems: 'flex-end', flexDirection: 'row', gap: 4 }}>
-                  <Text style={[styles.earnPoints, isPremium && { color: '#D4A843' }]}>+{amt}</Text>
-                  {isPremium && <Text style={{ fontSize: 10, color: '#D4A843', fontWeight: '700', backgroundColor: '#FFF8E1', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4, overflow: 'hidden' }}>2x</Text>}
-                </View>
+                <Text style={styles.earnPoints}>+{amt}</Text>
               </View>
             )
           })}
@@ -274,6 +298,11 @@ const styles = StyleSheet.create({
   earnPoints: { fontSize: 14, fontWeight: '700', color: '#6BA368' },
 
   // Leaderboard
+  leaderToggleRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  leaderToggle: { flex: 1, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F2EDE7', alignItems: 'center' as const },
+  leaderToggleActive: { backgroundColor: '#1A9E8F' },
+  leaderToggleText: { fontSize: 12, fontWeight: '600' as const, color: '#8B9AAD' },
+  leaderToggleTextActive: { color: '#fff' },
   leaderCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 20, shadowColor: '#1B2A3D', shadowOpacity: 0.04, elevation: 1 },
   leaderRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
   leaderRowMe: { backgroundColor: '#E8F5F3', marginHorizontal: -16, paddingHorizontal: 16, borderRadius: 8 },
