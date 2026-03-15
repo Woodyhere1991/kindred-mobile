@@ -118,7 +118,7 @@ export async function getMatchConfirmationState(itemId: string): Promise<Confirm
     .from('matches')
     .select('id, giver_id, receiver_id, giver_confirmed_at, receiver_confirmed_at')
     .eq('item_id', itemId)
-    .eq('status', 'accepted')
+    .in('status', ['accepted', 'completed'])
     .limit(1)
     .maybeSingle()
   if (error || !data) return null
@@ -139,7 +139,7 @@ export async function getMatchConfirmationStates(itemIds: string[]): Promise<Rec
     .from('matches')
     .select('id, item_id, giver_id, receiver_id, giver_confirmed_at, receiver_confirmed_at')
     .in('item_id', itemIds)
-    .eq('status', 'accepted')
+    .in('status', ['accepted', 'completed'])
   if (error || !data) return {}
 
   const result: Record<string, ConfirmationState> = {}

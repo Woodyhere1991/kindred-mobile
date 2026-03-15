@@ -158,6 +158,7 @@ export default function PointsScreen() {
             { a: 'Create a Listing', base: 5, d: 'Post something to give or something you need', i: '📝' },
             { a: 'Complete an Exchange (Giver)', base: 25, d: 'Successfully give away an item', i: '🎁' },
             { a: 'Complete an Exchange (Receiver)', base: 5, d: 'Confirm you received an item', i: '📦' },
+            { a: 'Rate an Exchange', base: 5, d: 'Leave a rating after completing an exchange', i: '✍️' },
             ...((myReliability.completed === 0) ? [{ a: 'First Exchange Bonus', base: 50, d: 'One-time bonus for your very first exchange', i: '🎉' }] : []),
             { a: '5-Star Rating Bonus', base: 10, d: 'When someone gives you a 5-star review', i: '⭐' },
             ...(!profile?.phone_verified ? [{ a: 'Verify Your Phone', base: 50, d: 'One-time bonus for phone verification', i: '📱' }] : []),

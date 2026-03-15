@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, TextInput, Image, Modal, Alert, Platform,
@@ -95,7 +95,7 @@ export default function ActivityScreen() {
   const [exchangeHistory, setExchangeHistory] = useState<ExchangeReceipt[]>([])
   const [showHistory, setShowHistory] = useState(false)
   const [historyLoaded, setHistoryLoaded] = useState(false)
-  const [proximityChecked, setProximityChecked] = useState(false)
+
   const [ratedItemIds, setRatedItemIds] = useState<Set<string>>(new Set())
   const [viewingProfile, setViewingProfile] = useState<PublicProfile | null>(null)
   const [viewingProfileStats, setViewingProfileStats] = useState<ReliabilityStats | null>(null)
@@ -313,21 +313,50 @@ export default function ActivityScreen() {
 
   const activeItems = myItems.filter(i => i.status !== 'completed')
   // Fetch confirmation states for matched items (initial + poll every 15s)
-  // Also detects when partner completes the exchange so we can show rating modal
+  // Auto-finalizes exchange when both sides have confirmed
   useEffect(() => {
     const fetchConfirmations = async () => {
-      const matchedIds = myItems.filter(i => i.status === 'matched').map(i => i.id)
+      const matchedItems = myItems.filter(i => i.status === 'matched')
+      const matchedIds = matchedItems.map(i => i.id)
       if (matchedIds.length === 0) return
       const states = await getMatchConfirmationStates(matchedIds).catch(() => ({} as Record<string, ConfirmationState>))
       setMatchConfirmations(states)
 
+      // Auto-complete: if both sides confirmed, finalize the exchange automatically
+      for (const item of matchedItems) {
+        const s = states[item.id]
+        if (!s) continue
+        if (s.giverConfirmed && s.receiverConfirmed) {
+          try {
+            const { proximityVerified, distanceM } = await finalizeExchange(s.matchId, item.id)
+            setMyItems(prev => prev.map(i => i.id !== item.id ? i : { ...i, status: 'completed' as Item['status'] }))
+            setRatingProximity({ verified: proximityVerified, distanceM })
+            setRatingItem({ ...item, status: 'completed' as Item['status'] })
+            setRatingStars(5)
+            setRatingTags([])
+
+            // Notify partner
+            const myRole = userId === s.giverId ? 'giver' : 'receiver'
+            const partnerId = myRole === 'giver' ? s.receiverId : s.giverId
+            if (partnerId) {
+              createNotification({
+                user_id: partnerId,
+                type: 'match',
+                title: 'Exchange complete!',
+                body: `Both confirmed for "${cap(item.title)}" — Kindness Points awarded!`,
+                item_id: item.id,
+              }).catch(console.error)
+            }
+          } catch (err) {
+            console.error('Auto-finalize failed:', err)
+          }
+        }
+      }
+
       // Check if any matched items were completed by the other person (match no longer 'accepted')
-      // If getMatchConfirmationStates returns nothing for an item we previously had, the match may be completed
       for (const itemId of matchedIds) {
         const prev = matchConfirmations[itemId]
         if (prev && !states[itemId]) {
-          // Match is no longer accepted — likely completed by the other side
-          // Refresh items to get the latest status
           await refreshItems()
           break
         }
@@ -339,107 +368,103 @@ export default function ActivityScreen() {
   }, [myItems])
 
   // Poll outgoing offers confirmation state every 15s (for receiver-side UI)
+  // Auto-finalizes exchange when both sides have confirmed
   useEffect(() => {
     const hasAccepted = myOutgoingOffers.some(o => o.status === 'accepted')
     if (!hasAccepted || !userId) return
-    const interval = setInterval(() => {
-      getOutgoingOffers(userId).then(setMyOutgoingOffers).catch(console.error)
+    const interval = setInterval(async () => {
+      try {
+        const fresh = await getOutgoingOffers(userId)
+        setMyOutgoingOffers(fresh)
+
+        // Auto-complete any offers where both sides confirmed
+        for (const offer of fresh) {
+          if (offer.status !== 'accepted') continue
+          const iConfirmed = userId === offer.giver_id ? !!offer.giver_confirmed_at : !!offer.receiver_confirmed_at
+          const theyConfirmed = userId === offer.giver_id ? !!offer.receiver_confirmed_at : !!offer.giver_confirmed_at
+          if (iConfirmed && theyConfirmed) {
+            const { proximityVerified, distanceM } = await finalizeExchange(offer.id, offer.item_id)
+            setRatingProximity({ verified: proximityVerified, distanceM })
+            const myRole = userId === offer.giver_id ? 'giver' : 'receiver'
+            setRatingItem({
+              id: offer.item_id, title: offer.item_title, type: offer.item_type,
+              category: offer.item_category as any, other_person_id: myRole === 'giver' ? offer.receiver_id : offer.giver_id,
+              user_id: '', status: 'completed', note: null, urgency: null, available_until: null,
+              food_expiry: null, is_large_item: false, needs_mover: false, offer_in_return: null,
+              handover_type: null, drop_point: null, drop_time: null, match_expiry: null,
+              suburb: '', lat: null, lng: null, created_at: offer.created_at, hold_mode: 'first_come', updated_at: offer.created_at,
+            } as Item)
+            setRatingStars(5)
+            setRatingTags([])
+            setMyOutgoingOffers(prev => prev.map(o => o.id !== offer.id ? o : { ...o, status: 'completed' as any }))
+
+            const partnerId = myRole === 'giver' ? offer.receiver_id : offer.giver_id
+            createNotification({
+              user_id: partnerId,
+              type: 'match',
+              title: 'Exchange complete!',
+              body: `Both confirmed for "${cap(offer.item_title)}" — Kindness Points awarded!`,
+              item_id: offer.item_id,
+            }).catch(console.error)
+          }
+        }
+      } catch (err) {
+        console.error('Offer poll error:', err)
+      }
     }, 15000)
     return () => clearInterval(interval)
   }, [myOutgoingOffers, userId])
 
   // Detect newly completed items (completed by partner) and show rating modal
+  // Only triggers for items completed externally (not by auto-complete which handles its own rating modal)
   // Check DB for existing reliability record to avoid duplicate prompts across reloads
   useEffect(() => {
-    if (!userId) return
+    if (!userId || ratingItem) return
     const completedUnrated = myItems.find(i => i.status === 'completed' && !ratedItemIds.has(i.id) && i.other_person_id)
-    if (completedUnrated && !ratingItem) {
-      // Check if user already rated this exchange (survives page reloads unlike ratedItemIds)
-      supabase.from('reliability')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('partner_id', completedUnrated.other_person_id)
-        .eq('completed', true)
-        .then(({ data }) => {
-          // Also check points_log — if they already got points for this item, they've rated it
-          supabase.from('points_log')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('item_id', completedUnrated.id)
-            .like('action', 'for %')
-            .limit(1)
-            .then(({ data: pointsData }) => {
-              if ((pointsData && pointsData.length > 0) || (data && data.length > 0)) {
-                // Already rated — add to ratedItemIds so we don't check again
-                setRatedItemIds(prev => new Set(prev).add(completedUnrated.id))
-              } else {
-                setRatingItem({ ...completedUnrated, status: 'completed' as Item['status'] })
-                setRatingStars(5)
-                setRatingTags([])
-              }
-            })
-        })
-    }
+    if (!completedUnrated) return
+
+    // Check if user already rated this specific exchange
+    supabase.from('reliability')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('partner_id', completedUnrated.other_person_id)
+      .eq('item_id', completedUnrated.id)
+      .limit(1)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setRatedItemIds(prev => new Set(prev).add(completedUnrated.id))
+          return
+        }
+        // Also check points_log for rating points
+        supabase.from('points_log')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('item_id', completedUnrated.id)
+          .like('action', 'for rating%')
+          .limit(1)
+          .then(({ data: pointsData }) => {
+            if (pointsData && pointsData.length > 0) {
+              setRatedItemIds(prev => new Set(prev).add(completedUnrated.id))
+            } else if (!ratingItem) {
+              setRatingItem({ ...completedUnrated, status: 'completed' as Item['status'] })
+              setRatingStars(5)
+              setRatingTags([])
+            }
+          })
+      })
   }, [myItems, userId])
 
-  // Auto proximity nudge: when user has matched items, check if they're nearby the other person
+
+
+  // Load exchange history when toggled on, or refresh when an item completes
+  const completedCount = myItems.filter(i => i.status === 'completed').length
   useEffect(() => {
-    if (proximityChecked || !userId) return
-    const matchedItems = myItems.filter(i => i.status === 'matched' && i.other_person_id)
-    if (matchedItems.length === 0) return
-
-    const checkProximity = async () => {
-      setProximityChecked(true)
-      try {
-        const myLocation = await getCurrentLocation()
-        if (!myLocation) return
-
-        for (const item of matchedItems) {
-          if (!item.other_person_id) continue
-          // Get other person's location from their profile
-          const { data: otherProfile } = await supabase
-            .from('profiles')
-            .select('lat, lng, display_name')
-            .eq('id', item.other_person_id)
-            .single()
-          if (!otherProfile?.lat || !otherProfile?.lng) continue
-
-          const dist = getDistanceKm(myLocation.lat, myLocation.lng, otherProfile.lat, otherProfile.lng)
-          if (dist <= 0.5) { // within 500m
-            const name = otherProfile.display_name || 'your exchange partner'
-            const distStr = dist < 0.1 ? 'very close' : `${Math.round(dist * 1000)}m away`
-            if (Platform.OS === 'web') {
-              if (confirm(`You're ${distStr} from ${cap(name)} — ready to complete "${cap(item.title)}"?`)) {
-                advanceItem(item.id)
-              }
-            } else {
-              Alert.alert(
-                'Nearby Exchange Partner',
-                `You're ${distStr} from ${cap(name)}. Ready to complete "${cap(item.title)}"?`,
-                [
-                  { text: 'Mark Complete', onPress: () => advanceItem(item.id) },
-                  { text: 'Not Yet', style: 'cancel' },
-                ]
-              )
-            }
-            break // Only nudge for one item at a time
-          }
-        }
-      } catch (err) {
-        console.error('Proximity check error:', err)
-      }
-    }
-    checkProximity()
-  }, [myItems, userId, proximityChecked]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Load exchange history when toggled on
-  useEffect(() => {
-    if (!showHistory || historyLoaded || !userId) return
+    if (!showHistory || !userId) return
     getExchangeReceipts(userId).then(data => {
       setExchangeHistory(data)
       setHistoryLoaded(true)
     }).catch(console.error)
-  }, [showHistory, userId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [showHistory, userId, completedCount]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmitForm = async () => {
     if (!formName.trim() || !userId) return
@@ -897,6 +922,23 @@ export default function ActivityScreen() {
         rating: ratingStars,
         tags: ratingTags,
       })
+
+      // Award rating points (+5 KP, or +10 for Plus)
+      const ratingKP = isPremium ? 10 : 5
+      try {
+        await supabase.rpc('award_points', { user_uuid: userId, points_to_add: ratingKP })
+        setPoints(p => p + ratingKP)
+        await supabase.from('points_log').insert({
+          user_id: userId,
+          item_id: ratingItem.id,
+          item_title: ratingItem.title,
+          item_type: ratingItem.type,
+          action: `for rating exchange${isPremium ? ' (2x Plus bonus)' : ''}`,
+          points: ratingKP,
+        })
+      } catch (err) {
+        console.error('Failed to award rating points:', err)
+      }
 
       // Check if exchange is fully completed (both sides confirmed)
       const bothConfirmed = ratingItem.status === 'completed'
@@ -1379,14 +1421,20 @@ export default function ActivityScreen() {
               </View>
             )}
 
-            {activeItems.some(i => i.type === 'give') && (
-              <Text style={{ fontSize: 13, fontWeight: '600', color: '#6BA368', marginBottom: 8, marginTop: 4 }}>🎁 Giving Away ({activeItems.filter(i => i.type === 'give').length})</Text>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#6BA368', marginBottom: 8, marginTop: 4 }}>🎁 Giving Away ({activeItems.filter(i => i.type === 'give').length})</Text>
+            {activeItems.filter(i => i.type === 'give').length === 0 && (
+              <Text style={{ fontSize: 12, color: '#8B9AAD', marginBottom: 8 }}>Nothing listed yet</Text>
             )}
             {[...activeItems.filter(i => i.type === 'give'), '__NEED_HEADER__' as any, ...activeItems.filter(i => i.type === 'need')].map((item, idx) => {
               if (item === '__NEED_HEADER__') {
-                return activeItems.some(i => i.type === 'need') ? (
-                  <Text key="__need_header__" style={{ fontSize: 13, fontWeight: '600', color: '#7B9ACC', marginBottom: 8, marginTop: activeItems.some(i => i.type === 'give') ? 12 : 4 }}>🙏 Things I Need ({activeItems.filter(i => i.type === 'need').length})</Text>
-                ) : null
+                return (
+                  <React.Fragment key="__need_header__">
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#7B9ACC', marginBottom: 8, marginTop: 12 }}>🙏 Things I Need ({activeItems.filter(i => i.type === 'need').length})</Text>
+                    {activeItems.filter(i => i.type === 'need').length === 0 && (
+                      <Text style={{ fontSize: 12, color: '#8B9AAD', marginBottom: 8 }}>Nothing listed yet</Text>
+                    )}
+                  </React.Fragment>
+                )
               }
               const steps = item.type === 'give' ? STEPS_GIVE : STEPS_NEED
               const si = STEP_INDEX[item.status] || 0
@@ -1530,26 +1578,11 @@ export default function ActivityScreen() {
                           </TouchableOpacity>
 
                           {iConfirmed ? (
-                            <TouchableOpacity
-                              style={[styles.itemBtn, { backgroundColor: '#F3F4F6', flex: 1 }]}
-                              onPress={async () => {
-                                // Re-check confirmation state from DB
-                                const fresh = await getMatchConfirmationStates([item.id])
-                                if (fresh[item.id]) {
-                                  setMatchConfirmations(prev => ({ ...prev, ...fresh }))
-                                  const f = fresh[item.id]
-                                  const myR = userId === f.giverId ? 'giver' : 'receiver'
-                                  const theyNow = myR === 'giver' ? f.receiverConfirmed : f.giverConfirmed
-                                  if (theyNow) {
-                                    showAlert('Updated', 'They have confirmed! Tap "Mark Complete" now.')
-                                  } else {
-                                    showAlert('Still waiting', 'They haven\'t confirmed yet. Pull down to refresh.')
-                                  }
-                                }
-                              }}
-                            >
-                              <Text style={{ textAlign: 'center', color: '#8B9AAD', fontWeight: '600', fontSize: 13 }}>Waiting for them to confirm... (tap to check)</Text>
-                            </TouchableOpacity>
+                            <View style={[styles.itemBtn, { backgroundColor: '#F3F4F6', flex: 1 }]}>
+                              <Text style={{ textAlign: 'center', color: '#8B9AAD', fontWeight: '600', fontSize: 13 }}>
+                                {theyConfirmed ? 'Completing...' : 'Waiting for them to confirm...'}
+                              </Text>
+                            </View>
                           ) : theyConfirmed ? (
                             <TouchableOpacity
                               style={[styles.itemBtn, { backgroundColor: '#DCFCE7', flex: 1, borderWidth: 2, borderColor: '#16A34A' }]}
@@ -1594,7 +1627,7 @@ export default function ActivityScreen() {
                     })()}
                     {item.status === 'completed' && (
                       <View style={[styles.itemBtn, styles.itemBtnSecondary, { flex: 1 }]}>
-                        <Text style={styles.itemBtnSecondaryText}>✅ Completed — +{item.type === 'give' ? 25 : 5} Kindness Points earned</Text>
+                        <Text style={styles.itemBtnSecondaryText}>✅ Completed — +{item.type === 'give' ? 30 : 10} Kindness Points earned</Text>
                       </View>
                     )}
                   </View>
@@ -1793,28 +1826,9 @@ export default function ActivityScreen() {
                                 <Text style={styles.itemBtnPrimaryText}>Message Them</Text>
                               </TouchableOpacity>
                               {iConfirmed ? (
-                                <TouchableOpacity
-                                  style={[styles.itemBtn, { backgroundColor: '#F3F4F6', flex: 1 }]}
-                                  onPress={async () => {
-                                    // Re-fetch fresh offer data from DB
-                                    if (userId) {
-                                      const fresh = await getOutgoingOffers(userId)
-                                      setMyOutgoingOffers(fresh)
-                                      const updated = fresh.find(o => o.id === offer.id)
-                                      if (updated) {
-                                        const r = userId === updated.giver_id ? 'giver' : 'receiver'
-                                        const theyNow = r === 'giver' ? !!updated.receiver_confirmed_at : !!updated.giver_confirmed_at
-                                        if (theyNow) {
-                                          showAlert('Updated', 'They have confirmed! Tap "Mark Complete" now.')
-                                        } else {
-                                          showAlert('Still waiting', 'They haven\'t confirmed yet. Pull down to refresh.')
-                                        }
-                                      }
-                                    }
-                                  }}
-                                >
-                                  <Text style={{ textAlign: 'center', color: '#8B9AAD', fontWeight: '600', fontSize: 13 }}>Waiting for them to confirm... (tap to check)</Text>
-                                </TouchableOpacity>
+                                <View style={[styles.itemBtn, { backgroundColor: '#F3F4F6', flex: 1 }]}>
+                                  <Text style={{ textAlign: 'center', color: '#8B9AAD', fontWeight: '600', fontSize: 13 }}>Waiting for them to confirm...</Text>
+                                </View>
                               ) : theyConfirmed ? (
                                 <TouchableOpacity
                                   style={[styles.itemBtn, { backgroundColor: '#DCFCE7', flex: 1, borderWidth: 2, borderColor: '#16A34A' }]}
@@ -1889,11 +1903,9 @@ export default function ActivityScreen() {
             })()}
 
             {/* ── EXCHANGE HISTORY ── */}
-            <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Exchange History</Text>
-            <TouchableOpacity style={{ paddingVertical: 10, alignItems: 'center' }} onPress={() => setShowHistory(!showHistory)}>
-              <Text style={{ fontSize: 13, color: Colors.teal, fontWeight: '600' }}>
-                {showHistory ? 'Hide exchange history' : 'Show exchange history'} {showHistory ? '▲' : '▼'}
-              </Text>
+            <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, paddingVertical: 10 }} onPress={() => setShowHistory(!showHistory)}>
+              <Text style={styles.sectionTitle}>Exchange History</Text>
+              <Text style={{ fontSize: 13, color: Colors.teal, fontWeight: '600' }}>{showHistory ? '▲' : '▼'}</Text>
             </TouchableOpacity>
             {showHistory && (
               exchangeHistory.length === 0 ? (
@@ -2937,11 +2949,11 @@ export default function ActivityScreen() {
         <View style={styles.celebrateOverlay}>
           <Text style={styles.celebrateEmoji}>🎉</Text>
           <Text style={styles.celebrateTitle}>Exchange Complete!</Text>
-          <Text style={styles.celebrateKP}>+{celebrate.type === 'give' ? 25 : 5} Kindness Points</Text>
+          <Text style={styles.celebrateKP}>+{isPremium ? (celebrate.type === 'give' ? 60 : 20) : (celebrate.type === 'give' ? 30 : 10)} Kindness Points</Text>
           <Text style={styles.celebrateSub}>You've made a difference in {suburb ? suburb.split(',')[0] : 'your community'}!</Text>
           {!isPremium && (
             <View style={styles.celebratePlus}>
-              <Text style={styles.celebratePlusText}>⭐ With Kindred Plus you'd earn {celebrate.type === 'give' ? 50 : 10} Kindness Points (2x bonus!)</Text>
+              <Text style={styles.celebratePlusText}>⭐ With Kindred Plus you'd earn {celebrate.type === 'give' ? 60 : 20} Kindness Points (2x bonus!)</Text>
             </View>
           )}
         </View>
