@@ -25,6 +25,8 @@ export interface Conversation {
   }
   item?: {
     title: string
+    type?: 'give' | 'need'
+    user_id?: string
     item_photos?: { public_url: string; position: number }[]
   }
   unread_count?: number
@@ -56,8 +58,7 @@ export async function getConversations(userId: string) {
     .select(`
       *,
       other_user:profiles!conversations_other_user_id_fkey(display_name, avatar_url, id_verified, completed_exchanges, total_exchanges, is_premium, points, suburb),
-      item:items!conversations_item_id_fkey(title, item_photos(public_url, position)),
-      match:matches!conversations_match_id_fkey(meetup_location, meetup_address, meetup_time, meetup_set_by)
+      item:items!conversations_item_id_fkey(title, type, user_id, item_photos(public_url, position))
     `)
     .or(`user_id.eq.${userId},other_user_id.eq.${userId}`)
     .neq('archived', true)
@@ -79,7 +80,27 @@ export async function getConversations(userId: string) {
     }
   }
 
-  return (data || []).map((conv: any) => ({ ...conv, unread_count: unreadMap[conv.id] ?? 0 })) as Conversation[]
+  const convs = (data || []).map((conv: any) => ({ ...conv, unread_count: unreadMap[conv.id] ?? 0 })) as Conversation[]
+
+  // Load meetup data for conversations that have a match_id
+  const matchIds = convs.map(c => c.match_id).filter(Boolean) as string[]
+  if (matchIds.length > 0) {
+    const { data: matches } = await supabase
+      .from('matches')
+      .select('id, meetup_location, meetup_address, meetup_time, meetup_set_by')
+      .in('id', matchIds)
+    if (matches) {
+      const matchMap = new Map(matches.map(m => [m.id, m]))
+      for (const conv of convs) {
+        if (conv.match_id) {
+          const m = matchMap.get(conv.match_id)
+          if (m) conv.match = { meetup_location: m.meetup_location, meetup_address: m.meetup_address, meetup_time: m.meetup_time, meetup_set_by: m.meetup_set_by }
+        }
+      }
+    }
+  }
+
+  return convs
 }
 
 /** Fetch messages for a conversation */

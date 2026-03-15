@@ -18,7 +18,7 @@ import { getDistanceKm } from '../../lib/location'
 import { DROP_POINTS, getMeetupStats, getHomePickupCounts } from '../../lib/utils'
 
 export default function MessagesScreen() {
-  const { userId, conversations, setConversations, userLat, userLng } = useApp()
+  const { userId, conversations, setConversations, userLat, userLng, profile } = useApp()
   const [activeConvo, setActiveConvo] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [msgInput, setMsgInput] = useState('')
@@ -350,6 +350,28 @@ export default function MessagesScreen() {
     return t.charAt(0).toUpperCase() + t.slice(1)
   }
 
+  /** Build a contextual description like "Woody is giving you a Jacket" */
+  const getConvoContext = (conv: Conversation): string => {
+    const otherName = getOtherName(conv)
+    const itemName = getItemName(conv)
+    const itemType = conv.item?.type
+    const itemOwnerId = conv.item?.user_id
+
+    if (!itemType || !itemOwnerId) return itemName
+
+    const isOtherPersonOwner = itemOwnerId !== userId
+
+    if (itemType === 'give') {
+      return isOtherPersonOwner
+        ? `${otherName} is giving you ${itemName}`
+        : `You are giving ${otherName} ${itemName}`
+    } else {
+      return isOtherPersonOwner
+        ? `${otherName} needs ${itemName}`
+        : `You need ${itemName} from ${otherName}`
+    }
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -408,7 +430,7 @@ export default function MessagesScreen() {
                   </View>
                   <Text style={styles.convTime}>{c.last_message_at ? formatTime(c.last_message_at) : ''}</Text>
                 </View>
-                <Text style={styles.convLabel}>Re: {getItemName(c)}</Text>
+                <Text style={styles.convLabel}>{getConvoContext(c)}</Text>
                 <Text style={styles.convLast} numberOfLines={1}>{c.last_message || 'No messages yet'}</Text>
               </View>
               {(c.unread_count ?? 0) > 0 && (
@@ -434,7 +456,7 @@ export default function MessagesScreen() {
                 <Text style={[styles.chatPerson, { color: '#1A9E8F' }]}>{activeConvoData ? getOtherName(activeConvoData) : ''}</Text>
                 {activeConvoData?.other_user?.is_premium && <Text style={{ fontSize: 11, color: '#D97706' }}>⭐Plus</Text>}
               </View>
-              <Text style={styles.chatLabel}>Re: {activeConvoData ? getItemName(activeConvoData) : ''} · <Text style={{ color: '#1A9E8F' }}>View profile</Text></Text>
+              <Text style={styles.chatLabel}>{activeConvoData ? getConvoContext(activeConvoData) : ''} · <Text style={{ color: '#1A9E8F' }}>View profile</Text></Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => handleReportUser(activeConvo)} style={styles.headerActionBtn}>
               <Text style={styles.headerActionText}>Report</Text>
@@ -733,9 +755,10 @@ export default function MessagesScreen() {
                   {(() => {
                     const otherId = activeConvoData ? (activeConvoData.other_user_id === userId ? activeConvoData.user_id : activeConvoData.other_user_id) : ''
                     const otherName = activeConvoData ? getOtherName(activeConvoData) : 'Their'
+                    const myAddress = profile?.home_address || null
                     const homeOptions = [
-                      { id: userId!, label: 'My home', icon: '🏠', desc: 'They come to your address' },
-                      { id: otherId, label: `${otherName}'s home`, icon: '🏠', desc: `You go to ${otherName}'s address` },
+                      { id: userId!, label: 'My home', icon: '🏠', desc: myAddress || 'Set your home address in Profile first', address: myAddress, disabled: !myAddress },
+                      { id: otherId, label: `${otherName}'s home`, icon: '🏠', desc: `You go to ${otherName}'s address`, address: null, disabled: false },
                     ]
                     return homeOptions.map((opt) => {
                       const isSelected = meetupHomeOf === opt.id && selectedMeetupPoint?.name === opt.label
@@ -743,14 +766,15 @@ export default function MessagesScreen() {
                       return (
                         <TouchableOpacity
                           key={opt.id}
-                          style={{ padding: 14, borderWidth: 2, borderColor: isSelected ? '#1A9E8F' : '#F2EDE7', borderRadius: 14, marginBottom: 8, backgroundColor: isSelected ? '#E8F5F3' : '#FBF9F6' }}
-                          onPress={() => { setSelectedMeetupPoint({ name: opt.label, address: 'Address shared privately', hours: '', distance: '', note: '' }); setMeetupHomeOf(opt.id) }}
+                          style={{ padding: 14, borderWidth: 2, borderColor: isSelected ? '#1A9E8F' : '#F2EDE7', borderRadius: 14, marginBottom: 8, backgroundColor: isSelected ? '#E8F5F3' : opt.disabled ? '#F5F5F5' : '#FBF9F6', opacity: opt.disabled ? 0.6 : 1 }}
+                          disabled={opt.disabled}
+                          onPress={() => { setSelectedMeetupPoint({ name: opt.label, address: opt.address || 'Address shared in chat', hours: '', distance: '', note: '' }); setMeetupHomeOf(opt.id) }}
                         >
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                             <Text style={{ fontSize: 18 }}>{opt.icon}</Text>
                             <View style={{ flex: 1 }}>
                               <Text style={{ fontSize: 14, fontWeight: '600', color: '#1B2A3D' }}>{opt.label}</Text>
-                              <Text style={{ fontSize: 12, color: '#8B9AAD' }}>{opt.desc}</Text>
+                              <Text style={{ fontSize: 12, color: opt.disabled ? '#C53030' : '#8B9AAD' }}>{opt.desc}</Text>
                               {count > 0 && (
                                 <Text style={{ fontSize: 11, color: '#1A9E8F', fontWeight: '600', marginTop: 2 }}>
                                   ✓ {count} successful {count === 1 ? 'exchange' : 'exchanges'} from home
