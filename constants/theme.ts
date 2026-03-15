@@ -32,11 +32,19 @@ export const Radius = {
 
 export const KP_TIERS = [
   { name: 'Newcomer', min: 0, icon: '🌱', color: Colors.green, perks: 'Community feed, basic matching', dailyLimit: 3 },
-  { name: 'Open', min: 200, icon: '💛', color: Colors.blue, perks: 'Open badge, priority in browse', dailyLimit: 3 },
+  { name: 'Open', min: 200, icon: '❤️', color: Colors.blue, perks: 'Open badge, priority in browse', dailyLimit: 3 },
   { name: 'Connected', min: 1000, icon: '🔥', color: Colors.warm, perks: '5 listings/day, early access', dailyLimit: 5 },
   { name: 'Elevated', min: 5000, icon: '💎', color: Colors.coral, perks: 'Boosted listings, custom profile', dailyLimit: 7 },
   { name: 'Kindred Spirit', min: 15000, icon: '👑', color: '#C77DBA', perks: '10 listings/day, monthly giveaway', dailyLimit: 10 },
 ] as const
+
+/** Get the tier icon for a given points value */
+export function getTierIcon(pts: number): string {
+  for (let i = KP_TIERS.length - 1; i >= 0; i--) {
+    if (pts >= KP_TIERS[i].min) return KP_TIERS[i].icon
+  }
+  return KP_TIERS[0].icon
+}
 
 export const CATEGORIES = ['food', 'clothing', 'household', 'baby', 'furniture', 'service', 'other'] as const
 export type Category = typeof CATEGORIES[number]

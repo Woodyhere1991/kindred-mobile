@@ -8,12 +8,15 @@ export interface PublicProfile {
   points: number
   id_verified: boolean
   is_premium: boolean
+  phone_verified: boolean
+  email_confirmed: boolean
   completed_exchanges: number
   total_exchanges: number
   streak: number
   created_at: string | null
   lat: number | null
   lng: number | null
+  mover_count: number
 }
 
 export interface ReliabilityStats {
@@ -26,11 +29,11 @@ export interface ReliabilityStats {
 export async function getPublicProfile(userId: string): Promise<PublicProfile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, display_name, avatar_url, suburb, points, id_verified, is_premium, completed_exchanges, total_exchanges, streak, created_at, lat, lng')
+    .select('id, display_name, avatar_url, suburb, points, id_verified, is_premium, phone_verified, completed_exchanges, total_exchanges, streak, created_at, lat, lng, mover_count')
     .eq('id', userId)
     .single()
   if (error || !data) return null
-  return data as PublicProfile
+  return { ...data, email_confirmed: true, phone_verified: data.phone_verified ?? false } as PublicProfile
 }
 
 /** Fetch reliability stats for a user (ratings they've received) */

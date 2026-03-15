@@ -78,7 +78,7 @@ export default function PrivacyScreen() {
         <Text style={styles.body}>
           We share limited information with other Kindred users as part of the service (e.g. your
           name, suburb, profile photo, and listed items are visible to other users). Your email,
-          phone number, date of birth, and ID verification documents are never shared with other users.
+          phone number, date of birth, and identity verification documents are never shared with other users.
           {'\n\n'}We use Supabase as our backend infrastructure provider, which stores data in
           secure, encrypted servers. We may also share data if required by New Zealand law or to
           protect the safety of our users.

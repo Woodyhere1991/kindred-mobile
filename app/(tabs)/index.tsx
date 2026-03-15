@@ -6,7 +6,7 @@ import {
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { router } from 'expo-router'
-import { Colors, CATEGORY_ICONS, Category, KP_TIERS } from '../../constants/theme'
+import { Colors, CATEGORY_ICONS, Category, KP_TIERS, getTierIcon } from '../../constants/theme'
 import { useApp } from '../../lib/appContext'
 import { createItem, updateItemStatus, updateItem, browseItems, uploadItemPhoto, findSmartMatches, BrowseItem, autoCategory, Item, getExchangeReceipts, ExchangeReceipt } from '../../lib/items'
 import { createMatch, updateMatchStatus, getPendingMatchForUser, getPendingOffersForItem, acceptOffer, withdrawOffer, holdOffer, releaseHold, cancelMatchAndRelist, getPendingOfferCounts, getOutgoingOffers, uploadOfferPhoto, PendingOffer, OutgoingOffer } from '../../lib/matches'
@@ -1098,8 +1098,7 @@ export default function ActivityScreen() {
       setRatingItem(null)
       setRatingProximity({ verified: false, distanceM: null })
       setCelebrate(ratingItem)
-      setTimeout(() => setCelebrate(null), 4000)
-    } catch (err: any) {
+          } catch (err: any) {
       showAlert('Error', err.message || 'Failed to submit rating')
     } finally {
       setRatingSubmitting(false)
@@ -1678,18 +1677,14 @@ export default function ActivityScreen() {
                                 </View>
                               )}
                             </TouchableOpacity>
-                            <View style={{ flex: 1 }}>
-                              <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }} onPress={() => openProfile(ownerId)}>
+                            <TouchableOpacity style={{ flex: 1 }} onPress={() => openProfile(ownerId)}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                                <Text style={{ fontSize: 11 }}>{getTierIcon(offer.owner_profile?.points ?? 0)}</Text>
                                 <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A9E8F' }}>{ownerName}</Text>
-                                {offer.owner_profile?.id_verified && <Text style={{ fontSize: 10 }}>🛡️</Text>}
-                                {offer.owner_profile?.is_premium && <Text style={{ fontSize: 10, color: '#D97706' }}>⭐</Text>}
-                              </TouchableOpacity>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                {offer.owner_profile?.suburb && <Text style={{ fontSize: 11, color: '#8B9AAD' }}>{cap(offer.owner_profile.suburb)}</Text>}
-                                {offer.owner_profile && (() => { const t = [...KP_TIERS].reverse().find(t => (offer.owner_profile!.points || 0) >= t.min); return t ? <Text style={{ fontSize: 10 }}>{t.icon}</Text> : null })()}
-                                {offer.owner_profile && offer.owner_profile.total_exchanges > 0 && <Text style={{ fontSize: 10, color: '#6B7280' }}>{Math.round((offer.owner_profile.completed_exchanges / offer.owner_profile.total_exchanges) * 100)}%</Text>}
+                                {offer.owner_profile?.is_premium && <Text style={{ fontSize: 11, color: '#D97706' }}>⭐Plus</Text>}
                               </View>
-                            </View>
+                              <Text style={{ fontSize: 10, color: '#B0BEC5' }}>View profile</Text>
+                            </TouchableOpacity>
                             <View style={{ backgroundColor: sc.bg, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
                               <Text style={{ fontSize: 10, fontWeight: '700', color: sc.text }}>{sc.label}</Text>
                             </View>
@@ -1903,7 +1898,8 @@ export default function ActivityScreen() {
             })()}
 
             {/* ── EXCHANGE HISTORY ── */}
-            <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, paddingVertical: 10 }} onPress={() => setShowHistory(!showHistory)}>
+            <View style={{ height: 1, backgroundColor: '#E5E7EB', marginTop: 24, marginBottom: 4 }} />
+            <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }} onPress={() => setShowHistory(!showHistory)}>
               <Text style={styles.sectionTitle}>Exchange History</Text>
               <Text style={{ fontSize: 13, color: Colors.teal, fontWeight: '600' }}>{showHistory ? '▲' : '▼'}</Text>
             </TouchableOpacity>
@@ -2090,20 +2086,18 @@ export default function ActivityScreen() {
                             <Text style={[styles.itemTypeBadgeText, b.type === 'give' ? styles.itemTypeBadgeTextGive : styles.itemTypeBadgeTextNeed]}>{b.type === 'give' ? 'Give' : 'Need'}</Text>
                           </View>
                         </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Text style={[styles.itemMeta, { color: '#1A9E8F' }]} onPress={() => openProfile(b.user_id)}>{browseProfile?.display_name ? cap(browseProfile.display_name) : 'Someone nearby'}</Text>
-                          {browseProfile?.suburb && <Text style={{ fontSize: 10, color: '#8B9AAD' }}>({browseProfile.suburb})</Text>}
+                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }} onPress={() => openProfile(b.user_id)}>
+                          <View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                              <Text style={{ fontSize: 11 }}>{getTierIcon(browseProfile?.points ?? 0)}</Text>
+                              <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A9E8F' }}>{browseProfile?.display_name ? cap(browseProfile.display_name) : 'Someone nearby'}</Text>
+                              {browseProfile?.is_premium && <Text style={{ fontSize: 11, color: '#D97706' }}>⭐Plus</Text>}
+                            </View>
+                            <Text style={{ fontSize: 10, color: '#B0BEC5' }}>View profile</Text>
+                          </View>
                           {b.distance != null && <Text style={styles.distanceText}>{formatDistance(b.distance)}</Text>}
-                          {myPendingOfferIds[b.id] && <View style={{ backgroundColor: '#E6F7FF', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: Colors.teal }}><Text style={{ fontSize: 10, fontWeight: '600', color: Colors.teal }}>Requested ✓</Text></View>}
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
-                          {browseProfile && (() => { const t = [...KP_TIERS].reverse().find(t => (browseProfile.points || 0) >= t.min); return t ? <Text style={{ fontSize: 10 }}>{t.icon}</Text> : null })()}
-                          {reliability !== null && <Text style={{ fontSize: 10, color: '#6B7280' }}>{reliability}%</Text>}
-                          {browseProfile?.id_verified && <Text style={{ fontSize: 10 }}>🛡️</Text>}
-                          {browseProfile?.is_premium && <Text style={{ fontSize: 10, color: '#D97706' }}>⭐</Text>}
-                          {(browseProfile?.mover_count ?? 0) >= 3 && <Text style={{ fontSize: 10, color: '#EA580C' }}>💪</Text>}
                           {b.category === 'food' && <View style={styles.tagBadge}><Text style={styles.tagBadgeText}>🥦 Food</Text></View>}
-                        </View>
+                        </TouchableOpacity>
                       </View>
                     </View>
                   </View>
@@ -2205,48 +2199,21 @@ export default function ActivityScreen() {
 
                 {/* Giver info */}
                 {dProfile && (
-                  <View style={{ marginBottom: 12 }}>
-                    <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }} onPress={() => openProfile(detailItem.user_id)}>
+                  <TouchableOpacity style={{ backgroundColor: '#F8F6F3', borderRadius: 12, padding: 12, marginBottom: 12 }} onPress={() => openProfile(detailItem.user_id)}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                       {dProfile.avatar_url ? (
-                        <Image source={{ uri: dProfile.avatar_url }} style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden' }} />
+                        <Image source={{ uri: dProfile.avatar_url }} style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }} />
                       ) : (
-                        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#E0D8CE', alignItems: 'center', justifyContent: 'center' }}>
-                          <Text style={{ fontSize: 18 }}>👤</Text>
+                        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#E0D8CE', alignItems: 'center', justifyContent: 'center' }}>
+                          <Text style={{ fontSize: 20 }}>👤</Text>
                         </View>
                       )}
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 15, fontWeight: '700', color: '#1A9E8F' }}>{cap(dProfile.display_name || 'Someone nearby')}</Text>
-                        <Text style={{ fontSize: 11, color: '#B0BEC5' }}>Tap to view profile</Text>
-                      </View>
-                    </TouchableOpacity>
-                    <View style={{ backgroundColor: '#F8F6F3', borderRadius: 10, padding: 10 }}>
-                      {dTier && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                          <Text style={{ fontSize: 13 }}>{dTier.icon}</Text>
-                          <Text style={{ fontSize: 13, fontWeight: '600', color: '#1B2A3D' }}>{dTier.name}</Text>
-                          <Text style={{ fontSize: 12, color: '#8B9AAD' }}>· {dProfile.points || 0} Kindness Points</Text>
-                        </View>
-                      )}
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        {dProfile.completed_exchanges > 0 ? (
-                          <>
-                            <Text style={{ fontSize: 12, color: '#6B7280' }}>✅ {dProfile.completed_exchanges} {dProfile.completed_exchanges === 1 ? 'exchange' : 'exchanges'}</Text>
-                            {dReliability !== null && (
-                              <View style={[styles.relBadge, relLevel(dReliability) === 'high' ? styles.relHigh : relLevel(dReliability) === 'mid' ? styles.relMid : styles.relLow]}>
-                                <Text style={styles.relBadgeText}>{dReliability}% reliable</Text>
-                              </View>
-                            )}
-                          </>
-                        ) : (
-                          <Text style={{ fontSize: 12, color: '#8B9AAD', fontStyle: 'italic' }}>New member · No exchanges yet</Text>
-                        )}
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                        {dProfile.id_verified && <Text style={styles.idBadge}>🛡️ Verified</Text>}
-                        {dProfile.is_premium && <View style={styles.plusBadge}><Text style={styles.plusBadgeText}>⭐ Plus</Text></View>}
+                        <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A9E8F' }}>{cap(dProfile.display_name || 'Someone nearby')}</Text>
+                        <Text style={{ fontSize: 12, color: '#8B9AAD' }}>Tap to view profile ›</Text>
                       </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 )}
 
 
@@ -2426,19 +2393,17 @@ export default function ActivityScreen() {
                       )}
                       <View style={styles.itemTopInfo}>
                         <Text style={styles.itemName}>{cap(match.title)}</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                          <Text style={[styles.itemMeta, { color: '#1A9E8F' }]} onPress={() => openProfile(match.user_id)}>{cap(matchProfile?.display_name || 'Someone nearby')}</Text>
-                          {matchProfile?.suburb && <Text style={{ fontSize: 10, color: '#8B9AAD' }}>({matchProfile.suburb})</Text>}
-                          {match.distance != null && <Text style={styles.distanceText}>{formatDistance(match.distance)}</Text>}
-                          <View style={[styles.itemTypeBadge, match.type === 'give' ? styles.itemTypeBadgeGive : styles.itemTypeBadgeNeed]}>
-                            <Text style={[styles.itemTypeBadgeText, match.type === 'give' ? styles.itemTypeBadgeTextGive : styles.itemTypeBadgeTextNeed]}>{match.type === 'give' ? 'Giving' : 'Needs'}</Text>
+                        <TouchableOpacity style={{ marginTop: 2 }} onPress={() => openProfile(match.user_id)}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                            <Text style={{ fontSize: 11 }}>{getTierIcon(matchProfile?.points ?? 0)}</Text>
+                            <Text style={{ fontSize: 12, fontWeight: '600', color: '#1A9E8F' }}>{cap(matchProfile?.display_name || 'Someone nearby')}</Text>
+                            {matchProfile?.is_premium && <Text style={{ fontSize: 11, color: '#D97706' }}>⭐Plus</Text>}
+                            {match.distance != null && <Text style={styles.distanceText}>{formatDistance(match.distance)}</Text>}
                           </View>
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
-                          {matchProfile && (() => { const t = [...KP_TIERS].reverse().find(t => (matchProfile.points || 0) >= t.min); return t ? <Text style={{ fontSize: 10 }}>{t.icon}</Text> : null })()}
-                          {matchProfile && matchProfile.total_exchanges > 0 && <Text style={{ fontSize: 10, color: '#6B7280' }}>{Math.round((matchProfile.completed_exchanges / matchProfile.total_exchanges) * 100)}%</Text>}
-                          {matchProfile?.id_verified && <Text style={{ fontSize: 10 }}>🛡️</Text>}
-                          {matchProfile?.is_premium && <Text style={{ fontSize: 10, color: '#D97706' }}>⭐</Text>}
+                          <Text style={{ fontSize: 10, color: '#B0BEC5' }}>View profile</Text>
+                        </TouchableOpacity>
+                        <View style={[styles.itemTypeBadge, match.type === 'give' ? styles.itemTypeBadgeGive : styles.itemTypeBadgeNeed, { marginTop: 4, alignSelf: 'flex-start' }]}>
+                          <Text style={[styles.itemTypeBadgeText, match.type === 'give' ? styles.itemTypeBadgeTextGive : styles.itemTypeBadgeTextNeed]}>{match.type === 'give' ? 'Giving' : 'Needs'}</Text>
                         </View>
                       </View>
                     </View>
@@ -2490,8 +2455,8 @@ export default function ActivityScreen() {
               const profileTier = offerProfile ? [...KP_TIERS].reverse().find(t => (offerProfile.points || 0) >= t.min) : null
               return (
                 <View key={offer.id} style={styles.offerCard}>
-                  {/* Profile header */}
-                  <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }} onPress={() => openProfile(offerUserId)}>
+                  {/* Profile card */}
+                  <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#F8F6F3', borderRadius: 12, padding: 12, marginBottom: 10 }} onPress={() => openProfile(offerUserId)}>
                     {offerProfile?.avatar_url ? (
                       <Image source={{ uri: offerProfile.avatar_url }} style={styles.offerAvatar} />
                     ) : (
@@ -2500,43 +2465,11 @@ export default function ActivityScreen() {
                       </View>
                     )}
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 15, fontWeight: '700', color: '#1A9E8F' }}>{cap(offerProfile?.display_name || 'Someone')}</Text>
-                      <Text style={{ fontSize: 11, color: '#B0BEC5' }}>Tap to view profile</Text>
+                      <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A9E8F' }}>{cap(offerProfile?.display_name || 'Someone')}</Text>
+                      <Text style={{ fontSize: 12, color: '#8B9AAD' }}>Tap to view profile ›</Text>
                     </View>
                     <Text style={{ fontSize: 11, color: '#8B9AAD' }}>{timeSince}</Text>
                   </TouchableOpacity>
-
-                  {/* Profile details */}
-                  <View style={{ backgroundColor: '#F8F6F3', borderRadius: 10, padding: 10, marginBottom: 10 }}>
-                    {/* Tier + Kindness Points */}
-                    {profileTier && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                        <Text style={{ fontSize: 13 }}>{profileTier.icon}</Text>
-                        <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.dark }}>{profileTier.name}</Text>
-                        <Text style={{ fontSize: 12, color: '#8B9AAD' }}>· {offerProfile?.points || 0} Kindness Points</Text>
-                      </View>
-                    )}
-                    {/* Exchange count + reliability */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      {offerProfile && offerProfile.completed_exchanges > 0 ? (
-                        <>
-                          <Text style={{ fontSize: 12, color: '#6B7280' }}>✅ {offerProfile.completed_exchanges} {offerProfile.completed_exchanges === 1 ? 'exchange' : 'exchanges'}</Text>
-                          {offerReliability !== null && (
-                            <View style={[styles.relBadge, relLevel(offerReliability) === 'high' ? styles.relHigh : relLevel(offerReliability) === 'mid' ? styles.relMid : styles.relLow]}>
-                              <Text style={styles.relBadgeText}>{offerReliability}% reliable</Text>
-                            </View>
-                          )}
-                        </>
-                      ) : (
-                        <Text style={{ fontSize: 12, color: '#8B9AAD', fontStyle: 'italic' }}>New member · No exchanges yet</Text>
-                      )}
-                    </View>
-                    {/* Badges row */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                      {offerProfile?.id_verified && <Text style={styles.idBadge}>🛡️ Verified</Text>}
-                      {offerProfile?.is_premium && <View style={styles.plusBadge}><Text style={styles.plusBadgeText}>⭐ Plus</Text></View>}
-                    </View>
-                  </View>
 
                   {/* Offer photos */}
                   {offer.offer_photos && offer.offer_photos.length > 0 && (
@@ -2841,10 +2774,10 @@ export default function ActivityScreen() {
                         <Text style={{ color: '#fff', fontWeight: '700', fontSize: 28 }}>{(viewingProfile.display_name || 'U').charAt(0).toUpperCase()}</Text>
                       </View>
                     )}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                      <Text style={{ fontSize: 14 }}>{getTierIcon(viewingProfile.points)}</Text>
                       <Text style={{ fontSize: 18, fontWeight: '700', color: '#1F2937' }}>{cap(viewingProfile.display_name || 'Unknown')}</Text>
-                      {viewingProfile.id_verified && <Text style={{ fontSize: 13 }}>🛡️</Text>}
-                      {viewingProfile.is_premium && <Text style={{ fontSize: 13, color: '#D97706' }}>⭐</Text>}
+                      {viewingProfile.is_premium && <Text style={{ fontSize: 13, color: '#D97706' }}>⭐Plus</Text>}
                     </View>
                     {viewingProfile.suburb && (
                       <Text style={{ fontSize: 13, color: '#8B9AAD', marginTop: 2 }}>{cap(viewingProfile.suburb)}</Text>
@@ -2887,6 +2820,29 @@ export default function ActivityScreen() {
                       )}
                     </View>
                   )}
+
+                  {/* Verification status */}
+                  <View style={{ backgroundColor: '#F8F6F2', borderRadius: 10, padding: 12, marginBottom: 16 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8 }}>Verification</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                      <Text style={{ fontSize: 13 }}>{viewingProfile.email_confirmed ? '✅' : '❌'}</Text>
+                      <Text style={{ fontSize: 13, color: viewingProfile.email_confirmed ? '#374151' : '#8B9AAD' }}>
+                        {viewingProfile.email_confirmed ? 'Email verified' : 'Email not yet verified'}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                      <Text style={{ fontSize: 13 }}>{viewingProfile.phone_verified ? '✅' : '❌'}</Text>
+                      <Text style={{ fontSize: 13, color: viewingProfile.phone_verified ? '#374151' : '#8B9AAD' }}>
+                        {viewingProfile.phone_verified ? 'Phone verified' : 'Phone not yet verified'}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ fontSize: 13 }}>{viewingProfile.id_verified ? '✅' : '❌'}</Text>
+                      <Text style={{ fontSize: 13, color: viewingProfile.id_verified ? '#374151' : '#8B9AAD' }}>
+                        {viewingProfile.id_verified ? 'Identity verified' : 'Identity not yet verified'}
+                      </Text>
+                    </View>
+                  </View>
 
                   <TouchableOpacity
                     style={{ backgroundColor: '#F3F4F6', borderRadius: 10, paddingVertical: 12, alignItems: 'center' }}
@@ -2945,19 +2901,53 @@ export default function ActivityScreen() {
         </View>
       </Modal>
 
-      {celebrate && (
-        <View style={styles.celebrateOverlay}>
-          <Text style={styles.celebrateEmoji}>🎉</Text>
-          <Text style={styles.celebrateTitle}>Exchange Complete!</Text>
-          <Text style={styles.celebrateKP}>+{isPremium ? (celebrate.type === 'give' ? 60 : 20) : (celebrate.type === 'give' ? 30 : 10)} Kindness Points</Text>
-          <Text style={styles.celebrateSub}>You've made a difference in {suburb ? suburb.split(',')[0] : 'your community'}!</Text>
-          {!isPremium && (
-            <View style={styles.celebratePlus}>
-              <Text style={styles.celebratePlusText}>⭐ With Kindred Plus you'd earn {celebrate.type === 'give' ? 60 : 20} Kindness Points (2x bonus!)</Text>
+      {celebrate && (() => {
+        const isGiver = celebrate.type === 'give'
+        const baseExchange = isGiver ? 25 : 5
+        const baseRating = 5
+        const exchangeKP = isPremium ? baseExchange * 2 : baseExchange
+        const ratingKP = isPremium ? baseRating * 2 : baseRating
+        const totalKP = exchangeKP + ratingKP
+        return (
+          <View style={styles.celebrateOverlay}>
+            <TouchableOpacity style={{ position: 'absolute', top: 16, right: 16, padding: 8 }} onPress={() => setCelebrate(null)}>
+              <Text style={{ fontSize: 22, color: '#8B9AAD', fontWeight: '700' }}>✕</Text>
+            </TouchableOpacity>
+            <Text style={styles.celebrateEmoji}>🎉</Text>
+            <Text style={styles.celebrateTitle}>Exchange Complete!</Text>
+            <Text style={styles.celebrateSub}>You've made a difference in {suburb ? suburb.split(',')[0] : 'your community'}!</Text>
+
+            <View style={{ backgroundColor: '#F0FDF4', borderRadius: 12, padding: 16, marginTop: 16, width: '100%' }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#374151', marginBottom: 10 }}>Points Earned</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                <Text style={{ fontSize: 13, color: '#4B5563' }}>{isGiver ? 'Giving away item' : 'Receiving item'}</Text>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#16A34A' }}>+{exchangeKP}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                <Text style={{ fontSize: 13, color: '#4B5563' }}>Rating the exchange</Text>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#16A34A' }}>+{ratingKP}</Text>
+              </View>
+              {isPremium && (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Text style={{ fontSize: 12, color: '#D4A843' }}>2x Plus bonus applied</Text>
+                  <Text style={{ fontSize: 12, color: '#D4A843' }}>⭐</Text>
+                </View>
+              )}
+              <View style={{ height: 1, backgroundColor: '#D1FAE5', marginVertical: 8 }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#374151' }}>Total</Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#16A34A' }}>+{totalKP} Kindness Points</Text>
+              </View>
             </View>
-          )}
-        </View>
-      )}
+
+            {!isPremium && (
+              <View style={styles.celebratePlus}>
+                <Text style={styles.celebratePlusText}>⭐ With Kindred Plus you'd earn {(isGiver ? 25 : 5) * 2 + 10} Kindness Points (2x bonus!)</Text>
+              </View>
+            )}
+          </View>
+        )
+      })()}
     </SafeAreaView>
   )
 }

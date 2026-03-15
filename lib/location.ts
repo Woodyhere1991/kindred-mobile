@@ -22,7 +22,8 @@ function toRad(deg: number): number {
 
 /** Format distance for display: "500m" or "3 km" */
 export function formatDistance(km: number): string {
-  if (km < 1) return `${Math.round(km * 1000)}m`
+  if (km < 0.1) return '< 0.1 km'
+  if (km < 1) return `${km.toFixed(1)} km`
   if (km < 10) return `${km.toFixed(1)} km`
   return `${Math.round(km)} km`
 }

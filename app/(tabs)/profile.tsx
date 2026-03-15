@@ -5,11 +5,12 @@ import * as ImagePicker from 'expo-image-picker'
 import { useApp } from '../../lib/appContext'
 import { signOut, sendPhoneOtp, verifyPhoneOtp } from '../../lib/auth'
 import { supabase } from '../../lib/supabase'
-import { DROP_POINTS } from '../../lib/utils'
+import { DROP_POINTS, getMeetupStats, getHomePickupCounts } from '../../lib/utils'
 import { getCurrentLocation } from '../../lib/location'
 import { searchAddresses, getAddressCoords, AddySuggestion } from '../../lib/addressAutocomplete'
 import { submitVerification, getMyVerification, IdVerification } from '../../lib/verification'
 import { containsProfanity, capitalizeName } from '../../lib/profanityFilter'
+import { getTierIcon } from '../../constants/theme'
 import { compressImage } from '../../lib/imageUtils'
 
 export default function ProfileScreen() {
@@ -33,6 +34,10 @@ export default function ProfileScreen() {
   const [emergName, setEmergName] = useState(profile?.emergency_contact_name || '')
   const [emergPhone, setEmergPhone] = useState(profile?.emergency_contact_phone || '')
   const [savingEmergency, setSavingEmergency] = useState(false)
+  const [showMeetPoints, setShowMeetPoints] = useState(false)
+  const [meetupStats, setMeetupStats] = useState<Record<string, number>>({})
+  const [myHomePickups, setMyHomePickups] = useState(0)
+  const [showEmergencyInfo, setShowEmergencyInfo] = useState(false)
   // Blocked users
   const [showBlockedUsers, setShowBlockedUsers] = useState(false)
   const [blockedUsers, setBlockedUsers] = useState<{ id: string; blocked_id: string; display_name: string | null }[]>([])
@@ -144,6 +149,12 @@ export default function ProfileScreen() {
       getMyVerification(userId).then(v => setMyVerification(v)).catch(() => {})
     }
   }, [userId, idVerified])
+
+  useEffect(() => {
+    if (userId) {
+      getHomePickupCounts([userId]).then(c => setMyHomePickups(c[userId] ?? 0)).catch(() => {})
+    }
+  }, [userId])
 
   const myRelScore = myReliability.total === 0 ? null : Math.round((myReliability.completed / myReliability.total) * 100)
 
@@ -493,7 +504,11 @@ export default function ProfileScreen() {
               <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>+</Text>
             </View>
           </TouchableOpacity>
-          <Text style={styles.profileName}>{userName || 'Set your name'}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+            <Text style={{ fontSize: 14 }}>{getTierIcon(points)}</Text>
+            <Text style={styles.profileName}>{userName || 'Set your name'}</Text>
+            {isPremium && <Text style={{ fontSize: 13, color: '#D97706' }}>⭐Plus</Text>}
+          </View>
           <Text style={styles.profileSub}>{suburb || 'Set your suburb'}</Text>
 
           <View style={styles.badges}>
@@ -505,7 +520,7 @@ export default function ProfileScreen() {
                 <Text style={[styles.badgeText, { color: '#1A9E8F' }]}>Verify Phone +{isPremium ? 100 : 50} Kindness Points</Text>
               </TouchableOpacity>
             ) : null}
-            {idVerified && <View style={[styles.badge, styles.badgeGold]}><Text style={[styles.badgeText, styles.badgeTextGold]}>🛡️ ID Verified</Text></View>}
+            {idVerified && <View style={[styles.badge, styles.badgeGold]}><Text style={[styles.badgeText, styles.badgeTextGold]}>🛡️ Identity Verified</Text></View>}
             {(profile?.mover_count ?? 0) >= 3 && <View style={[styles.badge, { backgroundColor: '#FFF3E6', borderColor: '#E8A040' }]}><Text style={[styles.badgeText, { color: '#E8A040' }]}>🚚 Mover</Text></View>}
           </View>
 
@@ -565,8 +580,8 @@ export default function ProfileScreen() {
             <TouchableOpacity style={styles.verifyCard} onPress={() => { resetVerifyModal(); setShowVerifyModal(true) }}>
               <Text style={styles.verifyIcon}>🛡️</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.verifyTitle}>{myVerification?.status === 'rejected' ? 'Verification Declined — Try Again' : 'Verify ID'}</Text>
-                <Text style={styles.verifyDesc}>+{isPremium ? 200 : 100} Kindness Points{isPremium ? ' (2x Plus bonus)' : ''}, gold badge, builds trust{'\n'}Your ID is never stored or shared</Text>
+                <Text style={styles.verifyTitle}>{myVerification?.status === 'rejected' ? 'Verification Declined — Try Again' : 'Verify Identity'}</Text>
+                <Text style={styles.verifyDesc}>+{isPremium ? 200 : 100} Kindness Points{isPremium ? ' (2x Plus bonus)' : ''}, gold badge, builds trust{'\n'}Your identity documents are never stored or shared</Text>
               </View>
               <Text style={styles.verifyArrow}>›</Text>
             </TouchableOpacity>
@@ -734,17 +749,36 @@ export default function ProfileScreen() {
         <Text style={styles.sectionTitle}>Safety</Text>
         <View style={styles.settingsCard}>
           <TouchableOpacity style={styles.settingsRow} onPress={() => { setEditingEmergency(!editingEmergency); setEmergName(profile?.emergency_contact_name || ''); setEmergPhone(profile?.emergency_contact_phone || '') }}>
-            <Text style={styles.settingsLabel}>Emergency Contact</Text>
-            <Text style={styles.settingsValue}>
-              {profile?.emergency_contact_name || 'Not set'} <Text style={styles.settingsArrow}>›</Text>
-            </Text>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.settingsLabel}>Emergency Contact</Text>
+                <TouchableOpacity onPress={(e) => { e.stopPropagation(); setShowEmergencyInfo(!showEmergencyInfo) }}>
+                  <View style={{ width: 16, height: 16, borderRadius: 8, borderWidth: 1.5, borderColor: '#C8D1DC', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: '#C8D1DC' }}>i</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+              {profile?.emergency_contact_name ? (
+                <Text style={{ fontSize: 12, color: '#8B9AAD', marginTop: 2 }}>{profile.emergency_contact_name} — {profile.emergency_contact_phone || 'No phone'}</Text>
+              ) : (
+                <Text style={{ fontSize: 12, color: '#C53030', marginTop: 2 }}>Not set — tap to add</Text>
+              )}
+            </View>
+            <Text style={styles.settingsArrow}>›</Text>
           </TouchableOpacity>
+          {showEmergencyInfo && (
+            <View style={{ paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#F8F6F3', borderBottomWidth: 1, borderBottomColor: '#F2EDE7' }}>
+              <Text style={{ fontSize: 12, color: '#8B9AAD', lineHeight: 18 }}>
+                Add someone you trust so they know when you're heading to an exchange. Your contact is private and only visible to you.
+              </Text>
+            </View>
+          )}
           {editingEmergency && (
             <View style={styles.editProfile}>
               <Text style={styles.formLabel}>Contact Name</Text>
-              <TextInput style={styles.editInput} value={emergName} onChangeText={setEmergName} placeholder="Name" placeholderTextColor="#C8D1DC" />
+              <TextInput style={styles.editInput} value={emergName} onChangeText={setEmergName} placeholder="e.g. Mum, Partner, Flatmate" placeholderTextColor="#C8D1DC" />
               <Text style={styles.formLabel}>Phone Number</Text>
-              <TextInput style={styles.editInput} value={emergPhone} onChangeText={setEmergPhone} placeholder="Phone" placeholderTextColor="#C8D1DC" keyboardType="phone-pad" />
+              <TextInput style={styles.editInput} value={emergPhone} onChangeText={setEmergPhone} placeholder="e.g. 021 123 4567" placeholderTextColor="#C8D1DC" keyboardType="phone-pad" />
               <TouchableOpacity style={[styles.saveBtn, savingEmergency && { opacity: 0.6 }]} onPress={handleSaveEmergency} disabled={savingEmergency}>
                 <Text style={styles.saveBtnText}>{savingEmergency ? 'Saving...' : 'Save'}</Text>
               </TouchableOpacity>
@@ -754,10 +788,55 @@ export default function ProfileScreen() {
             <Text style={styles.settingsLabel}>Blocked Users</Text>
             <Text style={styles.settingsArrow}>›</Text>
           </TouchableOpacity>
-          <View style={[styles.settingsRow, { borderBottomWidth: 0 }]}>
-            <Text style={styles.settingsLabel}>Drop Points</Text>
-            <Text style={styles.settingsValue}>{DROP_POINTS.length} nearby</Text>
+          {/* Home pickup stats */}
+          <View style={[styles.settingsRow, { borderBottomWidth: 1 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+              <Text style={{ fontSize: 16 }}>🏠</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.settingsLabel}>Home Exchanges</Text>
+                <Text style={{ fontSize: 12, color: '#8B9AAD', marginTop: 2 }}>
+                  {myHomePickups > 0
+                    ? `${myHomePickups} successful ${myHomePickups === 1 ? 'pickup/drop off' : 'pickups/drop offs'} at your home`
+                    : 'No home exchanges yet — this builds over time'}
+                </Text>
+              </View>
+            </View>
           </View>
+          <TouchableOpacity style={[styles.settingsRow, !showMeetPoints && { borderBottomWidth: 0 }]} onPress={() => { setShowMeetPoints(!showMeetPoints); if (!showMeetPoints) getMeetupStats().then(setMeetupStats).catch(() => {}) }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.settingsLabel}>Meet Up Points</Text>
+              <Text style={{ fontSize: 12, color: '#8B9AAD', marginTop: 2 }}>{DROP_POINTS.length} safe locations nearby</Text>
+            </View>
+            <Text style={styles.settingsArrow}>{showMeetPoints ? '‹' : '›'}</Text>
+          </TouchableOpacity>
+          {showMeetPoints && (
+            <View style={{ borderTopWidth: 0 }}>
+              <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 }}>
+                <Text style={{ fontSize: 12, color: '#8B9AAD', lineHeight: 18 }}>
+                  Meet at a public, well-lit location during open hours. These are suggested safe spots near you.
+                </Text>
+              </View>
+              {DROP_POINTS.map((pt, idx) => (
+                <View key={idx} style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: idx < DROP_POINTS.length - 1 ? 1 : 0, borderBottomColor: '#F2EDE7' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <Text style={{ fontSize: 16 }}>📍</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#1B2A3D', flex: 1 }}>{pt.name}</Text>
+                    <Text style={{ fontSize: 11, color: '#1A9E8F', fontWeight: '600' }}>{pt.distance}</Text>
+                  </View>
+                  <View style={{ marginLeft: 24 }}>
+                    <Text style={{ fontSize: 12, color: '#8B9AAD' }}>{pt.address}</Text>
+                    <Text style={{ fontSize: 12, color: '#374151', marginTop: 2 }}>Hours: {pt.hours}</Text>
+                    <Text style={{ fontSize: 11, color: '#6BA368', marginTop: 2 }}>{pt.note}</Text>
+                    {(meetupStats[pt.name] ?? 0) > 0 && (
+                      <Text style={{ fontSize: 11, color: '#1A9E8F', fontWeight: '600', marginTop: 3 }}>
+                        ✓ {meetupStats[pt.name]} successful {meetupStats[pt.name] === 1 ? 'exchange' : 'exchanges'} here
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Notifications section */}
