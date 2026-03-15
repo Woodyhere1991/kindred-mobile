@@ -5,6 +5,7 @@ export interface LeaderboardEntry {
   display_name: string | null
   completed_exchanges: number
   points: number
+  total_points: number
   avatar_url: string | null
   is_premium: boolean
 }
@@ -21,7 +22,7 @@ export async function getSuburbLeaderboard(suburb: string, limit = 10): Promise<
     .order('completed_exchanges', { ascending: false })
     .limit(limit)
   if (error) throw error
-  return (data || []) as LeaderboardEntry[]
+  return (data || []).map((d: any) => ({ ...d, total_points: d.points })) as LeaderboardEntry[]
 }
 
 /** Get top earners in a suburb by points earned within a time period */
@@ -45,7 +46,7 @@ export async function getTimedLeaderboard(suburb: string, period: 'daily' | 'wee
   // Query points_log for the period, join with profiles (filtered by suburb)
   const { data, error } = await supabase
     .from('points_log')
-    .select('user_id, points, profiles!inner(id, display_name, avatar_url, completed_exchanges, is_premium, suburb)')
+    .select('user_id, points, profiles!inner(id, display_name, avatar_url, completed_exchanges, is_premium, suburb, points)')
     .gte('created_at', since)
     .gt('points', 0)
     .ilike('profiles.suburb', suburb)
@@ -69,6 +70,7 @@ export async function getTimedLeaderboard(suburb: string, period: 'daily' | 'wee
         avatar_url: profile.avatar_url,
         completed_exchanges: profile.completed_exchanges || 0,
         points: row.points,
+        total_points: profile.points || 0,
         is_premium: profile.is_premium ?? false,
       })
     }

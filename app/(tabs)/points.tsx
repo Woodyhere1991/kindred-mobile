@@ -88,18 +88,18 @@ export default function PointsScreen() {
                   )}
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                      <Text style={{ fontSize: 11 }}>{getTierIcon(entry.points)}</Text>
+                      <Text style={{ fontSize: 11 }}>{getTierIcon(entry.total_points)}</Text>
                       <Text style={[styles.leaderName, isMe ? { color: Colors.teal, fontWeight: '700' } : undefined]}>
                         {entry.display_name ? entry.display_name.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'Anonymous'}{isMe ? ' (you)' : ''}
                       </Text>
                       {entry.is_premium && <Text style={{ fontSize: 10, color: '#D97706' }}>⭐Plus</Text>}
                     </View>
                     <Text style={styles.leaderStat}>
-                      {leaderboardPeriod === 'alltime' ? `${entry.completed_exchanges} exchanges` : `${entry.points} KP earned`}
+                      {entry.completed_exchanges} {entry.completed_exchanges === 1 ? 'exchange' : 'exchanges'}
                     </Text>
                   </View>
                   <Text style={styles.leaderKp}>
-                    {leaderboardPeriod === 'alltime' ? `${entry.points} KP` : `${entry.completed_exchanges} exchanges`}
+                    {entry.points} Kindness Points
                   </Text>
                 </View>
               )
@@ -178,7 +178,7 @@ export default function PointsScreen() {
         {/* How to earn */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>How to Earn</Text>
-          {isPremium && <Text style={{ fontSize: 11, color: '#D4A843', fontWeight: '600' }}>All points doubled with ⭐Plus</Text>}
+          {isPremium && <Text style={{ fontSize: 11, color: '#D4A843', fontWeight: '600' }}>All points now doubled with ⭐Plus</Text>}
         </View>
         <View style={styles.earnCard}>
           {[

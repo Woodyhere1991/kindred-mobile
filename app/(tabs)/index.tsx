@@ -138,12 +138,14 @@ export default function ActivityScreen() {
     for (const item of listedItems) {
       try {
         const matches = await findSmartMatches(item)
-        if (matches.length > 0) results[item.id] = matches
+        // Filter out items the user already has a pending offer on
+        const filtered = matches.filter(m => !myPendingOfferIds[m.id])
+        if (filtered.length > 0) results[item.id] = filtered
       } catch {}
     }
     setItemMatchCounts(results)
     setMatchCheckDone(true)
-  }, [isPremium, userId, myItems])
+  }, [isPremium, userId, myItems, myPendingOfferIds])
 
   // Run match check on initial load and when items change
   useEffect(() => {
@@ -1153,6 +1155,15 @@ export default function ActivityScreen() {
       } catch {}
       await refreshConversations()
       await refreshNotifications()
+      // Remove this item from smart match counts so the banner updates
+      setItemMatchCounts(prev => {
+        const updated = { ...prev }
+        for (const key of Object.keys(updated)) {
+          updated[key] = updated[key].filter(m => m.id !== item.id)
+          if (updated[key].length === 0) delete updated[key]
+        }
+        return updated
+      })
       const ownerName = item.profiles?.display_name || 'the owner'
       if (isNeed) {
         showAlert('Offer Sent!', `${ownerName} will review what you're offering. If they're keen, you'll be connected in Messages.`)
@@ -1681,8 +1692,13 @@ export default function ActivityScreen() {
                               <Text style={{ fontSize: 10, fontWeight: '700', color: sc.text }}>{sc.label}</Text>
                             </View>
                           </View>
-                          {/* Item row */}
-                          <View style={styles.itemTopRow}>
+                          {/* Item row — tap to view listing detail */}
+                          <TouchableOpacity style={styles.itemTopRow} onPress={async () => {
+                            try {
+                              const { data: itemData } = await supabase.from('items').select('*, item_photos(*), profiles:profiles!items_user_id_profiles_fkey(display_name, completed_exchanges, total_exchanges, id_verified, is_premium, avatar_url, mover_count, points, suburb)').eq('id', offer.item_id).single()
+                              if (itemData) { setDetailItem(itemData as any); setOfferMessage('') }
+                            } catch {}
+                          }}>
                             {offer.photo_url ? (
                               <Image source={{ uri: offer.photo_url }} style={styles.itemPhoto} />
                             ) : (
@@ -1698,7 +1714,7 @@ export default function ActivityScreen() {
                               <Text style={{ fontSize: 11, color: '#8B9AAD', marginTop: 1 }}>Requested {requestDate}</Text>
                               {offer.message && <Text style={{ fontSize: 12, color: '#8B9AAD', marginTop: 4, fontStyle: 'italic' }}>"{offer.message}"</Text>}
                             </View>
-                          </View>
+                          </TouchableOpacity>
                         </View>
                         {offer.status === 'held' && offer.hold_until && (
                           <View style={{ backgroundColor: '#FFF8E1', padding: 8, borderRadius: 8, marginTop: 4 }}>
