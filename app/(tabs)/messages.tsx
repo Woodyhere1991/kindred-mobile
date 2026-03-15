@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Image, Alert, Platform, Modal, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Image, Alert, Platform, Modal, ActivityIndicator, Linking } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
+import * as Notifications from 'expo-notifications'
+import DateTimePicker from '@react-native-community/datetimepicker'
 import { useApp } from '../../lib/appContext'
 import {
   sendMessage as sendMessageApi, getMessages, markRead,
@@ -9,9 +11,11 @@ import {
 } from '../../lib/messages'
 import { submitReport, REPORT_CATEGORIES } from '../../lib/reports'
 import { getPublicProfile, getReliabilityStats, PublicProfile, ReliabilityStats } from '../../lib/profileViewer'
+import { createNotification } from '../../lib/notifications'
 import { supabase } from '../../lib/supabase'
-import { KP_TIERS } from '../../constants/theme'
+import { KP_TIERS, getTierIcon } from '../../constants/theme'
 import { getDistanceKm } from '../../lib/location'
+import { DROP_POINTS, getMeetupStats, getHomePickupCounts } from '../../lib/utils'
 
 export default function MessagesScreen() {
   const { userId, conversations, setConversations, userLat, userLng } = useApp()
@@ -27,6 +31,17 @@ export default function MessagesScreen() {
   const [viewingProfile, setViewingProfile] = useState<PublicProfile | null>(null)
   const [viewingProfileStats, setViewingProfileStats] = useState<ReliabilityStats | null>(null)
   const [profileLoading, setProfileLoading] = useState(false)
+  // Meetup arrangement
+  const [showMeetupModal, setShowMeetupModal] = useState(false)
+  const [meetupStep, setMeetupStep] = useState<'location' | 'time'>('location')
+  const [selectedMeetupPoint, setSelectedMeetupPoint] = useState<typeof DROP_POINTS[number] | null>(null)
+  const [meetupDate, setMeetupDate] = useState(new Date())
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [showTimePicker, setShowTimePicker] = useState(false)
+  const [savingMeetup, setSavingMeetup] = useState(false)
+  const [meetupStats, setMeetupStats] = useState<Record<string, number>>({})
+  const [meetupHomeOf, setMeetupHomeOf] = useState<string | null>(null) // user ID whose home is the meetup
+  const [homePickupCounts, setHomePickupCounts] = useState<Record<string, number>>({})
 
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
@@ -72,6 +87,13 @@ export default function MessagesScreen() {
       }
     }
     loadMessages()
+
+    // Load home pickup counts for both users
+    const convo = conversations.find(c => c.id === activeConvo)
+    if (convo) {
+      const otherId = convo.other_user_id === userId ? convo.user_id : convo.other_user_id
+      getHomePickupCounts([userId, otherId]).then(setHomePickupCounts).catch(() => {})
+    }
 
     // Subscribe to real-time messages
     const channel = subscribeToMessages(activeConvo, (newMsg) => {
@@ -204,6 +226,108 @@ export default function MessagesScreen() {
     ])
   }
 
+  const handleArrangeMeetup = async () => {
+    if (!selectedMeetupPoint || !activeConvoData?.match_id || !userId) return
+    setSavingMeetup(true)
+    try {
+      // Save meetup to the match record
+      const { error } = await supabase
+        .from('matches')
+        .update({
+          meetup_location: selectedMeetupPoint.name,
+          meetup_address: selectedMeetupPoint.address,
+          meetup_time: meetupDate.toISOString(),
+          meetup_set_by: userId,
+          meetup_at_home_of: meetupHomeOf,
+        })
+        .eq('id', activeConvoData.match_id)
+      if (error) throw error
+
+      // Format time for display
+      const timeStr = meetupDate.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+
+      // Send a system message in the chat
+      const meetupMsg = `📍 Meetup arranged!\n${selectedMeetupPoint.name}\n${selectedMeetupPoint.address}\n🕐 ${timeStr}`
+      await sendMessageApi(activeConvo!, userId, meetupMsg)
+      setMessages(prev => [...prev])
+
+      // Refresh messages to show the new one
+      const msgs = await getMessages(activeConvo!)
+      setMessages(msgs)
+
+      // Update conversation last message
+      setConversations(prev => prev.map(c =>
+        c.id === activeConvo
+          ? { ...c, last_message: '📍 Meetup arranged!', last_message_at: new Date().toISOString(), match: { meetup_location: selectedMeetupPoint.name, meetup_address: selectedMeetupPoint.address, meetup_time: meetupDate.toISOString(), meetup_set_by: userId } }
+          : c
+      ))
+
+      // Notify the other user
+      const otherId = activeConvoData.other_user_id === userId ? activeConvoData.user_id : activeConvoData.other_user_id
+      const otherName = getOtherName(activeConvoData)
+      const itemName = getItemName(activeConvoData)
+      await createNotification({
+        user_id: otherId,
+        type: 'arranged',
+        title: 'Meetup arranged!',
+        body: `${otherName} set a meetup for "${itemName}" at ${selectedMeetupPoint.name} — ${timeStr}`,
+        item_id: activeConvoData.item_id,
+        match_id: activeConvoData.match_id,
+      })
+
+      // Schedule local notification reminders
+      try {
+        const { status } = await Notifications.requestPermissionsAsync()
+        if (status === 'granted') {
+          const meetupMs = meetupDate.getTime()
+          const now = Date.now()
+          // 30 min before reminder
+          const reminderMs = meetupMs - 30 * 60 * 1000
+          if (reminderMs > now) {
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: 'Meetup in 30 minutes',
+                body: `Your exchange meetup at ${selectedMeetupPoint.name} is coming up soon!`,
+              },
+              trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(reminderMs) },
+            })
+          }
+          // At meetup time
+          if (meetupMs > now) {
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: 'Meetup time!',
+                body: `Head to ${selectedMeetupPoint.name}, ${selectedMeetupPoint.address}`,
+              },
+              trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: meetupDate },
+            })
+          }
+        }
+      } catch (notifErr) {
+        console.log('Could not schedule notifications:', notifErr)
+      }
+
+      setShowMeetupModal(false)
+      setMeetupStep('location')
+      setSelectedMeetupPoint(null)
+      setMeetupHomeOf(null)
+      setMeetupDate(new Date())
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 200)
+    } catch (err: any) {
+      Platform.OS === 'web' ? alert(err.message || 'Failed to arrange meetup') : Alert.alert('Error', err.message || 'Failed to arrange meetup')
+    } finally {
+      setSavingMeetup(false)
+    }
+  }
+
+  const openInMaps = (address: string) => {
+    const encoded = encodeURIComponent(address)
+    const url = Platform.OS === 'ios'
+      ? `maps:?q=${encoded}`
+      : `https://www.google.com/maps/search/?api=1&query=${encoded}`
+    Linking.openURL(url)
+  }
+
   const formatTime = (dateStr: string): string => {
     const d = new Date(dateStr)
     const now = new Date()
@@ -277,14 +401,14 @@ export default function MessagesScreen() {
               )}
               <View style={styles.convInfo}>
                 <View style={styles.convNameRow}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                    <Text style={{ fontSize: 10 }}>{getTierIcon(c.other_user?.points ?? 0)}</Text>
                     <Text style={styles.convName}>{getOtherName(c)}</Text>
-                    {c.other_user?.id_verified && <Text style={{ fontSize: 10 }}>🛡️</Text>}
-                    {c.other_user?.is_premium && <Text style={{ fontSize: 10, color: '#D97706' }}>⭐</Text>}
+                    {c.other_user?.is_premium && <Text style={{ fontSize: 10, color: '#D97706' }}>⭐Plus</Text>}
                   </View>
                   <Text style={styles.convTime}>{c.last_message_at ? formatTime(c.last_message_at) : ''}</Text>
                 </View>
-                <Text style={styles.convLabel}>Re: {getItemName(c)}{c.other_user?.suburb ? ` · ${c.other_user.suburb}` : ''}</Text>
+                <Text style={styles.convLabel}>Re: {getItemName(c)}</Text>
                 <Text style={styles.convLast} numberOfLines={1}>{c.last_message || 'No messages yet'}</Text>
               </View>
               {(c.unread_count ?? 0) > 0 && (
@@ -305,12 +429,12 @@ export default function MessagesScreen() {
                 openProfile(otherId)
               }
             }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                <Text style={{ fontSize: 11 }}>{getTierIcon(activeConvoData?.other_user?.points ?? 0)}</Text>
                 <Text style={[styles.chatPerson, { color: '#1A9E8F' }]}>{activeConvoData ? getOtherName(activeConvoData) : ''}</Text>
-                {activeConvoData?.other_user?.id_verified && <Text style={{ fontSize: 11 }}>🛡️</Text>}
-                {activeConvoData?.other_user?.is_premium && <Text style={{ fontSize: 11, color: '#D97706' }}>⭐</Text>}
+                {activeConvoData?.other_user?.is_premium && <Text style={{ fontSize: 11, color: '#D97706' }}>⭐Plus</Text>}
               </View>
-              <Text style={styles.chatLabel}>Re: {activeConvoData ? getItemName(activeConvoData) : ''}{activeConvoData?.other_user?.suburb ? ` · ${activeConvoData.other_user.suburb}` : ''} · <Text style={{ color: '#B0BEC5' }}>View profile</Text></Text>
+              <Text style={styles.chatLabel}>Re: {activeConvoData ? getItemName(activeConvoData) : ''} · <Text style={{ color: '#1A9E8F' }}>View profile</Text></Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => handleReportUser(activeConvo)} style={styles.headerActionBtn}>
               <Text style={styles.headerActionText}>Report</Text>
@@ -319,6 +443,47 @@ export default function MessagesScreen() {
               <Text style={[styles.headerActionText, styles.headerBlockText]}>Block</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Meetup card banner */}
+          {activeConvoData?.match?.meetup_time && (
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#E8F5F3', borderBottomWidth: 1, borderBottomColor: '#D0E8E4' }}
+              onPress={() => openInMaps(activeConvoData.match!.meetup_address || activeConvoData.match!.meetup_location || '')}
+            >
+              <Text style={{ fontSize: 22 }}>📍</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#1B2A3D' }}>{activeConvoData.match!.meetup_location}</Text>
+                <Text style={{ fontSize: 11, color: '#8B9AAD' }}>{activeConvoData.match!.meetup_address}</Text>
+                <Text style={{ fontSize: 11, color: '#1A9E8F', fontWeight: '600', marginTop: 2 }}>
+                  {new Date(activeConvoData.match!.meetup_time!).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 11, color: '#1A9E8F', fontWeight: '600' }}>Open Maps ›</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Home pickup stats for both users */}
+          {activeConvoData && (() => {
+            const otherId = activeConvoData.other_user_id === userId ? activeConvoData.user_id : activeConvoData.other_user_id
+            const otherName = getOtherName(activeConvoData)
+            const myCount = homePickupCounts[userId!] ?? 0
+            const theirCount = homePickupCounts[otherId] ?? 0
+            if (myCount === 0 && theirCount === 0) return null
+            return (
+              <View style={{ paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#FBF9F6', borderBottomWidth: 1, borderBottomColor: '#F2EDE7' }}>
+                {theirCount > 0 && (
+                  <Text style={{ fontSize: 12, color: '#374151', lineHeight: 18 }}>
+                    🏠 {otherName} has had {theirCount} successful {theirCount === 1 ? 'pickup/drop off' : 'pickups/drop offs'} at their home
+                  </Text>
+                )}
+                {myCount > 0 && (
+                  <Text style={{ fontSize: 12, color: '#374151', lineHeight: 18 }}>
+                    🏠 You have had {myCount} successful {myCount === 1 ? 'pickup/drop off' : 'pickups/drop offs'} at your home
+                  </Text>
+                )}
+              </View>
+            )
+          })()}
 
           <ScrollView ref={scrollRef} style={styles.msgThread} onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}>
             {loading && (
@@ -364,6 +529,26 @@ export default function MessagesScreen() {
                 <Text style={{ fontSize: 13, color: '#C53030', fontWeight: '600' }}>Remove</Text>
               </TouchableOpacity>
             </View>
+          )}
+          {/* Arrange Meetup button */}
+          {activeConvoData?.match_id && (
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F2EDE7', backgroundColor: '#fff' }}
+              onPress={() => {
+                setShowMeetupModal(true); setMeetupStep('location'); setSelectedMeetupPoint(null); setMeetupHomeOf(null); setMeetupDate(new Date())
+                getMeetupStats().then(setMeetupStats).catch(() => {})
+                // Load home pickup counts for both users
+                if (activeConvoData && userId) {
+                  const otherId = activeConvoData.other_user_id === userId ? activeConvoData.user_id : activeConvoData.other_user_id
+                  getHomePickupCounts([userId, otherId]).then(setHomePickupCounts).catch(() => {})
+                }
+              }}
+            >
+              <Text style={{ fontSize: 14 }}>📍</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A9E8F' }}>
+                {activeConvoData?.match?.meetup_time ? 'Change Meetup' : 'Arrange Meetup'}
+              </Text>
+            </TouchableOpacity>
           )}
           <View style={styles.inputBar}>
             <TouchableOpacity
@@ -427,10 +612,10 @@ export default function MessagesScreen() {
                         <Text style={{ color: '#fff', fontWeight: '700', fontSize: 28 }}>{(viewingProfile.display_name || 'U').charAt(0).toUpperCase()}</Text>
                       </View>
                     )}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                      <Text style={{ fontSize: 14 }}>{getTierIcon(viewingProfile.points)}</Text>
                       <Text style={{ fontSize: 18, fontWeight: '700', color: '#1F2937' }}>{cap(viewingProfile.display_name || 'Unknown')}</Text>
-                      {viewingProfile.id_verified && <Text style={{ fontSize: 13 }}>🛡️</Text>}
-                      {viewingProfile.is_premium && <Text style={{ fontSize: 13, color: '#D97706' }}>⭐</Text>}
+                      {viewingProfile.is_premium && <Text style={{ fontSize: 13, color: '#D97706' }}>⭐Plus</Text>}
                     </View>
                     {viewingProfile.suburb && <Text style={{ fontSize: 13, color: '#8B9AAD', marginTop: 2 }}>{cap(viewingProfile.suburb)}</Text>}
                     {distanceLabel && <Text style={{ fontSize: 11, color: '#1A9E8F', marginTop: 3 }}>{distanceLabel}</Text>}
@@ -458,6 +643,30 @@ export default function MessagesScreen() {
                       </Text>
                     </View>
                   )}
+
+                  {/* Verification status */}
+                  <View style={{ backgroundColor: '#F8F6F2', borderRadius: 10, padding: 12, marginBottom: 16 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8 }}>Verification</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                      <Text style={{ fontSize: 13 }}>{viewingProfile.email_confirmed ? '✅' : '❌'}</Text>
+                      <Text style={{ fontSize: 13, color: viewingProfile.email_confirmed ? '#374151' : '#8B9AAD' }}>
+                        {viewingProfile.email_confirmed ? 'Email verified' : 'Email not yet verified'}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                      <Text style={{ fontSize: 13 }}>{viewingProfile.phone_verified ? '✅' : '❌'}</Text>
+                      <Text style={{ fontSize: 13, color: viewingProfile.phone_verified ? '#374151' : '#8B9AAD' }}>
+                        {viewingProfile.phone_verified ? 'Phone verified' : 'Phone not yet verified'}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ fontSize: 13 }}>{viewingProfile.id_verified ? '✅' : '❌'}</Text>
+                      <Text style={{ fontSize: 13, color: viewingProfile.id_verified ? '#374151' : '#8B9AAD' }}>
+                        {viewingProfile.id_verified ? 'Identity verified' : 'Identity not yet verified'}
+                      </Text>
+                    </View>
+                  </View>
+
                   <TouchableOpacity style={{ backgroundColor: '#F3F4F6', borderRadius: 10, paddingVertical: 12, alignItems: 'center' }} onPress={() => setViewingProfile(null)}>
                     <Text style={{ color: '#6B7280', fontWeight: '600', fontSize: 14 }}>Close</Text>
                   </TouchableOpacity>
@@ -508,6 +717,181 @@ export default function MessagesScreen() {
                 </>
               )
             })() : null}
+          </View>
+        </View>
+      </Modal>
+      {/* Meetup arrangement modal */}
+      <Modal visible={showMeetupModal} animationType="slide" transparent onRequestClose={() => setShowMeetupModal(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(27,42,61,0.4)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '85%' }}>
+            {meetupStep === 'location' ? (
+              <>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: '#1B2A3D', marginBottom: 4 }}>Choose a Meetup Location</Text>
+                <Text style={{ fontSize: 12, color: '#8B9AAD', marginBottom: 16 }}>Pick a home address or a safe public location</Text>
+                <ScrollView style={{ maxHeight: 350 }}>
+                  {/* Home options */}
+                  {(() => {
+                    const otherId = activeConvoData ? (activeConvoData.other_user_id === userId ? activeConvoData.user_id : activeConvoData.other_user_id) : ''
+                    const otherName = activeConvoData ? getOtherName(activeConvoData) : 'Their'
+                    const homeOptions = [
+                      { id: userId!, label: 'My home', icon: '🏠', desc: 'They come to your address' },
+                      { id: otherId, label: `${otherName}'s home`, icon: '🏠', desc: `You go to ${otherName}'s address` },
+                    ]
+                    return homeOptions.map((opt) => {
+                      const isSelected = meetupHomeOf === opt.id && selectedMeetupPoint?.name === opt.label
+                      const count = homePickupCounts[opt.id] ?? 0
+                      return (
+                        <TouchableOpacity
+                          key={opt.id}
+                          style={{ padding: 14, borderWidth: 2, borderColor: isSelected ? '#1A9E8F' : '#F2EDE7', borderRadius: 14, marginBottom: 8, backgroundColor: isSelected ? '#E8F5F3' : '#FBF9F6' }}
+                          onPress={() => { setSelectedMeetupPoint({ name: opt.label, address: 'Address shared privately', hours: '', distance: '', note: '' }); setMeetupHomeOf(opt.id) }}
+                        >
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text style={{ fontSize: 18 }}>{opt.icon}</Text>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontSize: 14, fontWeight: '600', color: '#1B2A3D' }}>{opt.label}</Text>
+                              <Text style={{ fontSize: 12, color: '#8B9AAD' }}>{opt.desc}</Text>
+                              {count > 0 && (
+                                <Text style={{ fontSize: 11, color: '#1A9E8F', fontWeight: '600', marginTop: 2 }}>
+                                  ✓ {count} successful {count === 1 ? 'exchange' : 'exchanges'} from home
+                                </Text>
+                              )}
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      )
+                    })
+                  })()}
+                  {/* Divider */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 8 }}>
+                    <View style={{ flex: 1, height: 1, backgroundColor: '#E8E2DA' }} />
+                    <Text style={{ fontSize: 11, color: '#8B9AAD', marginHorizontal: 10 }}>or choose a public Meet Up Point</Text>
+                    <View style={{ flex: 1, height: 1, backgroundColor: '#E8E2DA' }} />
+                  </View>
+                  {DROP_POINTS.map((pt, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      style={{ padding: 14, borderWidth: 2, borderColor: selectedMeetupPoint?.name === pt.name && !meetupHomeOf ? '#1A9E8F' : '#F2EDE7', borderRadius: 14, marginBottom: 8, backgroundColor: selectedMeetupPoint?.name === pt.name && !meetupHomeOf ? '#E8F5F3' : '#FBF9F6' }}
+                      onPress={() => { setSelectedMeetupPoint(pt); setMeetupHomeOf(null) }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={{ fontSize: 18 }}>📍</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 14, fontWeight: '600', color: '#1B2A3D' }}>{pt.name}</Text>
+                          <Text style={{ fontSize: 12, color: '#8B9AAD' }}>{pt.address}</Text>
+                          <Text style={{ fontSize: 11, color: '#374151', marginTop: 2 }}>{pt.hours}</Text>
+                          <Text style={{ fontSize: 11, color: '#6BA368', marginTop: 1 }}>{pt.note}</Text>
+                          {(meetupStats[pt.name] ?? 0) > 0 && (
+                            <Text style={{ fontSize: 11, color: '#1A9E8F', fontWeight: '600', marginTop: 2 }}>
+                              ✓ {meetupStats[pt.name]} successful {meetupStats[pt.name] === 1 ? 'exchange' : 'exchanges'}
+                            </Text>
+                          )}
+                        </View>
+                        <Text style={{ fontSize: 11, color: '#1A9E8F', fontWeight: '600' }}>{pt.distance}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <TouchableOpacity
+                  style={{ backgroundColor: selectedMeetupPoint ? '#1A9E8F' : '#C8D1DC', borderRadius: 50, paddingVertical: 14, alignItems: 'center', marginTop: 12 }}
+                  disabled={!selectedMeetupPoint}
+                  onPress={() => setMeetupStep('time')}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>Next — Pick a Time</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={{ padding: 12, alignItems: 'center', marginTop: 4 }} onPress={() => setShowMeetupModal(false)}>
+                  <Text style={{ fontSize: 14, color: '#8B9AAD' }}>Cancel</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: '#1B2A3D', marginBottom: 4 }}>Pick a Date & Time</Text>
+                <Text style={{ fontSize: 12, color: '#8B9AAD', marginBottom: 4 }}>Meeting at {selectedMeetupPoint?.name}</Text>
+                {selectedMeetupPoint?.hours ? (
+                  <Text style={{ fontSize: 11, color: '#6BA368', marginBottom: 16 }}>Hours: {selectedMeetupPoint?.hours}</Text>
+                ) : (
+                  <View style={{ marginBottom: 16 }} />
+                )}
+
+                {Platform.OS === 'web' ? (
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#1B2A3D', marginBottom: 6 }}>Date & Time</Text>
+                    <TextInput
+                      style={{ borderWidth: 2, borderColor: '#F2EDE7', borderRadius: 10, padding: 14, fontSize: 15, color: '#1B2A3D', backgroundColor: '#fff' }}
+                      placeholder="e.g. Tomorrow 2pm"
+                      placeholderTextColor="#C8D1DC"
+                      value={meetupDate.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                      onFocus={() => {}}
+                      editable={false}
+                    />
+                    <Text style={{ fontSize: 11, color: '#8B9AAD', marginTop: 4 }}>Date picker not available on web — use the native app</Text>
+                  </View>
+                ) : (
+                  <View style={{ marginBottom: 16 }}>
+                    <TouchableOpacity
+                      style={{ borderWidth: 2, borderColor: '#F2EDE7', borderRadius: 10, padding: 14, marginBottom: 8, backgroundColor: '#FBF9F6' }}
+                      onPress={() => setShowDatePicker(true)}
+                    >
+                      <Text style={{ fontSize: 12, color: '#8B9AAD' }}>Date</Text>
+                      <Text style={{ fontSize: 15, color: '#1B2A3D', fontWeight: '600' }}>
+                        {meetupDate.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={{ borderWidth: 2, borderColor: '#F2EDE7', borderRadius: 10, padding: 14, backgroundColor: '#FBF9F6' }}
+                      onPress={() => setShowTimePicker(true)}
+                    >
+                      <Text style={{ fontSize: 12, color: '#8B9AAD' }}>Time</Text>
+                      <Text style={{ fontSize: 15, color: '#1B2A3D', fontWeight: '600' }}>
+                        {meetupDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {showDatePicker && (
+                      <DateTimePicker
+                        value={meetupDate}
+                        mode="date"
+                        minimumDate={new Date()}
+                        onChange={(_, date) => {
+                          setShowDatePicker(false)
+                          if (date) {
+                            const updated = new Date(meetupDate)
+                            updated.setFullYear(date.getFullYear(), date.getMonth(), date.getDate())
+                            setMeetupDate(updated)
+                          }
+                        }}
+                      />
+                    )}
+                    {showTimePicker && (
+                      <DateTimePicker
+                        value={meetupDate}
+                        mode="time"
+                        minuteInterval={5}
+                        onChange={(_, date) => {
+                          setShowTimePicker(false)
+                          if (date) {
+                            const updated = new Date(meetupDate)
+                            updated.setHours(date.getHours(), date.getMinutes())
+                            setMeetupDate(updated)
+                          }
+                        }}
+                      />
+                    )}
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={{ backgroundColor: '#1A9E8F', borderRadius: 50, paddingVertical: 14, alignItems: 'center', opacity: savingMeetup ? 0.6 : 1 }}
+                  disabled={savingMeetup}
+                  onPress={handleArrangeMeetup}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>{savingMeetup ? 'Saving...' : 'Confirm Meetup'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={{ padding: 12, alignItems: 'center', marginTop: 4 }} onPress={() => setMeetupStep('location')}>
+                  <Text style={{ fontSize: 14, color: '#8B9AAD' }}>Back</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       </Modal>

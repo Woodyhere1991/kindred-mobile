@@ -28,6 +28,12 @@ export interface Conversation {
     item_photos?: { public_url: string; position: number }[]
   }
   unread_count?: number
+  match?: {
+    meetup_location: string | null
+    meetup_address: string | null
+    meetup_time: string | null
+    meetup_set_by: string | null
+  }
 }
 
 export interface Message {
@@ -50,7 +56,8 @@ export async function getConversations(userId: string) {
     .select(`
       *,
       other_user:profiles!conversations_other_user_id_fkey(display_name, avatar_url, id_verified, completed_exchanges, total_exchanges, is_premium, points, suburb),
-      item:items!conversations_item_id_fkey(title, item_photos(public_url, position))
+      item:items!conversations_item_id_fkey(title, item_photos(public_url, position)),
+      match:matches!conversations_match_id_fkey(meetup_location, meetup_address, meetup_time, meetup_set_by)
     `)
     .or(`user_id.eq.${userId},other_user_id.eq.${userId}`)
     .neq('archived', true)

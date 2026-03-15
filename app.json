@@ -60,7 +60,8 @@
           "photosPermission": "Kindred needs access to your photos to add images to listings.",
           "cameraPermission": "Kindred needs your camera to take photos for listings and ID verification."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "router": {},

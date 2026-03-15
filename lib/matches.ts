@@ -19,6 +19,11 @@ export interface Match {
   created_at: string
   giver_confirmed_at: string | null
   receiver_confirmed_at: string | null
+  meetup_location: string | null
+  meetup_address: string | null
+  meetup_time: string | null
+  meetup_set_by: string | null
+  meetup_at_home_of: string | null
 }
 
 interface OfferProfile {
