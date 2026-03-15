@@ -25,6 +25,11 @@ async function uploadVerificationPhoto(
   uri: string,
 ): Promise<string> {
   const path = `${userId}/${filename}`
+
+  // Check auth state before uploading
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Not authenticated - please sign in again')
+
   const compressed = await compressImage(uri)
   const response = await fetch(compressed)
   const blob = await response.blob()
@@ -32,7 +37,7 @@ async function uploadVerificationPhoto(
   const { error } = await supabase.storage
     .from('id-verifications')
     .upload(path, blob, { contentType: 'image/jpeg', upsert: true })
-  if (error) throw error
+  if (error) throw new Error(`Storage upload error: ${error.message} (statusCode: ${(error as any).statusCode})`)
 
   return path
 }
@@ -107,57 +112,21 @@ export async function getSignedUrl(path: string) {
   return data.signedUrl
 }
 
-/** Admin: approve a verification */
+/** Admin: approve a verification (uses SECURITY DEFINER RPC to bypass RLS) */
 export async function approveVerification(verificationId: string, adminId: string) {
-  // Get the verification to find user_id
-  const { data: verification, error: fetchErr } = await supabase
-    .from('id_verifications')
-    .select('user_id')
-    .eq('id', verificationId)
-    .single()
-  if (fetchErr) throw fetchErr
-
-  // Update verification status
-  const { error: updateErr } = await supabase
-    .from('id_verifications')
-    .update({ status: 'approved', reviewed_by: adminId, updated_at: new Date().toISOString() })
-    .eq('id', verificationId)
-  if (updateErr) throw updateErr
-
-  // Set user as verified
-  const { error: profileErr } = await supabase
-    .from('profiles')
-    .update({ id_verified: true, updated_at: new Date().toISOString() })
-    .eq('id', verification.user_id)
-  if (profileErr) throw profileErr
-
-  // Award KP: 100 base, 200 for Plus members
-  const { data: userProfile } = await supabase.from('profiles').select('is_premium').eq('id', verification.user_id).single()
-  const verifyKP = userProfile?.is_premium ? 200 : 100
-  const { error: pointsErr } = await supabase.rpc('award_completion_points', {
-    user_uuid: verification.user_id,
-    points_to_add: verifyKP,
+  const { error } = await supabase.rpc('admin_approve_verification', {
+    verification_uuid: verificationId,
+    admin_uuid: adminId,
   })
-  if (pointsErr) throw pointsErr
-
-  // Log to persistent points feed
-  await supabase.from('points_log').insert({
-    user_id: verification.user_id,
-    action: `for completing ID verification${userProfile?.is_premium ? ' (2x Plus bonus)' : ''}`,
-    points: verifyKP,
-  })
+  if (error) throw error
 }
 
-/** Admin: reject a verification */
+/** Admin: reject a verification (uses SECURITY DEFINER RPC to bypass RLS) */
 export async function rejectVerification(verificationId: string, adminId: string, reason?: string) {
-  const { error } = await supabase
-    .from('id_verifications')
-    .update({
-      status: 'rejected',
-      reviewed_by: adminId,
-      rejection_reason: reason || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', verificationId)
+  const { error } = await supabase.rpc('admin_reject_verification', {
+    verification_uuid: verificationId,
+    admin_uuid: adminId,
+    reject_reason: reason || null,
+  })
   if (error) throw error
 }

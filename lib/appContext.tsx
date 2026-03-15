@@ -253,8 +253,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setNotifications(prev => [notification, ...prev])
     })
 
+    // Subscribe to profile changes (e.g. admin toggling Plus)
+    const profileChannel = supabase
+      .channel(`profile-${userId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles',
+        filter: `id=eq.${userId}`,
+      }, (payload) => {
+        const updated = payload.new as Profile
+        setProfile(updated)
+        setPoints(updated.points ?? 0)
+        setIdVerified(updated.id_verified ?? false)
+      })
+      .subscribe()
+
     return () => {
       supabase.removeChannel(notifChannel)
+      supabase.removeChannel(profileChannel)
     }
   }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 

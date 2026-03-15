@@ -123,7 +123,7 @@ export default function ProfileScreen() {
       setShowPhoneVerifyModal(false)
       setPhoneOtpSent(false)
       setPhoneOtpCode('')
-      const msg = `Phone verified! +${phoneKP} KP earned`
+      const msg = `Phone verified! +${phoneKP} Kindness Points earned`
       if (Platform.OS === 'web') { alert(msg) } else { Alert.alert('Success', msg) }
     } catch (err: any) {
       setPhoneError(err.message || 'Invalid code')
@@ -303,8 +303,8 @@ export default function ProfileScreen() {
             points: 25,
           })
           Platform.OS === 'web'
-            ? alert('Photo uploaded! +25 KP earned')
-            : Alert.alert('Photo Uploaded!', 'You earned +25 KP for adding a profile photo!')
+            ? alert('Photo uploaded! +25 Kindness Points earned')
+            : Alert.alert('Photo Uploaded!', 'You earned +25 Kindness Points for adding a profile photo!')
         } catch { }
       }
       await refreshProfile()
@@ -502,7 +502,7 @@ export default function ProfileScreen() {
               <View style={styles.badge}><Text style={styles.badgeText}>✓ Phone</Text></View>
             ) : profile?.phone ? (
               <TouchableOpacity style={[styles.badge, { borderColor: '#1A9E8F', backgroundColor: '#E8F8F5' }]} onPress={() => setShowPhoneVerifyModal(true)}>
-                <Text style={[styles.badgeText, { color: '#1A9E8F' }]}>Verify Phone +{isPremium ? 100 : 50}KP</Text>
+                <Text style={[styles.badgeText, { color: '#1A9E8F' }]}>Verify Phone +{isPremium ? 100 : 50} Kindness Points</Text>
               </TouchableOpacity>
             ) : null}
             {idVerified && <View style={[styles.badge, styles.badgeGold]}><Text style={[styles.badgeText, styles.badgeTextGold]}>🛡️ ID Verified</Text></View>}
@@ -512,7 +512,7 @@ export default function ProfileScreen() {
           <View style={styles.stats}>
             <View style={styles.stat}>
               <Text style={styles.statVal}>{points}</Text>
-              <Text style={styles.statLabel}>KP</Text>
+              <Text style={styles.statLabel}>Kindness Points</Text>
             </View>
             <View style={styles.stat}>
               <Text style={styles.statVal}>{myRelScore !== null ? myRelScore + '%' : '--'}</Text>
@@ -566,7 +566,7 @@ export default function ProfileScreen() {
               <Text style={styles.verifyIcon}>🛡️</Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.verifyTitle}>{myVerification?.status === 'rejected' ? 'Verification Declined — Try Again' : 'Verify ID'}</Text>
-                <Text style={styles.verifyDesc}>+{isPremium ? 200 : 100} KP{isPremium ? ' (2x Plus bonus)' : ''}, gold badge, builds trust{'\n'}Your ID is never stored or shared</Text>
+                <Text style={styles.verifyDesc}>+{isPremium ? 200 : 100} Kindness Points{isPremium ? ' (2x Plus bonus)' : ''}, gold badge, builds trust{'\n'}Your ID is never stored or shared</Text>
               </View>
               <Text style={styles.verifyArrow}>›</Text>
             </TouchableOpacity>
@@ -586,7 +586,7 @@ export default function ProfileScreen() {
             <Text style={styles.verifyIcon}>📱</Text>
             <View style={{ flex: 1 }}>
               <Text style={styles.verifyTitle}>Verify Phone</Text>
-              <Text style={styles.verifyDesc}>+{isPremium ? 100 : 50} KP{isPremium ? ' (2x Plus bonus)' : ''}, adds a trust badge{'\n'}Your number is never shared with others</Text>
+              <Text style={styles.verifyDesc}>+{isPremium ? 100 : 50} Kindness Points{isPremium ? ' (2x Plus bonus)' : ''}, adds a trust badge{'\n'}Your number is never shared with others</Text>
             </View>
             <Text style={styles.verifyArrow}>›</Text>
           </TouchableOpacity>
@@ -819,7 +819,7 @@ export default function ProfileScreen() {
             {verifyStep === 'choose' && (
               <>
                 <Text style={styles.verifyModalTitle}>Verify Your Identity</Text>
-                <Text style={styles.verifyModalDesc}>Choose a document type. You'll earn +{isPremium ? 200 : 100} KP{isPremium ? ' (2x Plus bonus)' : ''} and a gold badge.</Text>
+                <Text style={styles.verifyModalDesc}>Choose a document type. You'll earn +{isPremium ? 200 : 100} Kindness Points{isPremium ? ' (2x Plus bonus)' : ''} and a gold badge.</Text>
                 {[
                   { icon: '🪪', label: 'Driver\'s Licence', desc: 'NZ or international' },
                   { icon: '📘', label: 'Passport', desc: 'Any country' },
@@ -920,7 +920,7 @@ export default function ProfileScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Verify Phone Number</Text>
-            <Text style={styles.modalSubtitle}>Verify your phone to earn +{isPremium ? 100 : 50} KP</Text>
+            <Text style={styles.modalSubtitle}>Verify your phone to earn +{isPremium ? 100 : 50} Kindness Points</Text>
             <Text style={{ fontSize: 15, fontWeight: '600', color: '#1B2A3D', textAlign: 'center', marginBottom: 16 }}>{profile?.phone}</Text>
 
             {!phoneOtpSent ? (

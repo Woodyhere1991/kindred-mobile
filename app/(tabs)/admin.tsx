@@ -234,7 +234,7 @@ export default function AdminScreen() {
   }
 
   const handleApproveVerification = (v: IdVerification) => {
-    confirmAction('Approve Verification', `Approve ID for ${v.profiles?.display_name || 'this user'}? They'll get +100 KP (or +200 if Plus) and a verified badge.`, async () => {
+    confirmAction('Approve Verification', `Approve ID for ${v.profiles?.display_name || 'this user'}? They'll get +100 Kindness Points (or +200 if Plus) and a verified badge.`, async () => {
       try {
         await approveVerification(v.id, userId!)
         setVerifications(prev => prev.filter(x => x.id !== v.id))

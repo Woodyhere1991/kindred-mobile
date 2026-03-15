@@ -19,7 +19,7 @@ HOW IT WORKS
 • Browse what's available near you
 • Request items you need — neighbours can respond
 • Chat directly with other members to arrange pickup
-• Earn Kindred Points for every exchange
+• Earn Kindness Points for every exchange
 
 FEATURES
 

@@ -591,7 +591,7 @@ export default function ActivityScreen() {
             user_id: partnerId,
             type: 'match',
             title: 'Exchange complete!',
-            body: `Both confirmed for "${cap(item.title)}" — KP awarded!`,
+            body: `Both confirmed for "${cap(item.title)}" — Kindness Points awarded!`,
             item_id: item.id,
           }).catch(console.error)
         }
@@ -618,7 +618,7 @@ export default function ActivityScreen() {
         }
 
         // No rating modal yet — wait until both sides confirm
-        showAlert('Confirmed!', `Waiting for ${result.partnerName || 'the other person'} to confirm their side. You'll rate and earn KP once they confirm.`)
+        showAlert('Confirmed!', `Waiting for ${result.partnerName || 'the other person'} to confirm their side. You'll rate and earn Kindness Points once they confirm.`)
       }
     } catch (err: any) {
       showAlert('Error', err.message || 'Failed to confirm exchange')
@@ -1019,7 +1019,7 @@ export default function ActivityScreen() {
                 user_id: ratingItem.other_person_id,
                 type: 'match',
                 title: 'You got a 5-star review!',
-                body: `${userName || 'Someone'} gave you 5 stars — you earned +10 KP!`,
+                body: `${userName || 'Someone'} gave you 5 stars — you earned +10 Kindness Points!`,
                 item_id: ratingItem.id,
               })
             } catch (err) {
@@ -1359,7 +1359,7 @@ export default function ActivityScreen() {
                     disabled={!formName.trim() || submitting || (formCategory === 'food' && formType === 'give' && !formFoodChecked)}
                   >
                     <Text style={styles.itemBtnPrimaryText}>
-                      {submitting ? 'Posting...' : `List (+5 KP)`}
+                      {submitting ? 'Posting...' : `List (+5 Kindness Points)`}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.itemBtn, styles.itemBtnSecondary]} onPress={() => setShowForm(false)}>
@@ -1594,7 +1594,7 @@ export default function ActivityScreen() {
                     })()}
                     {item.status === 'completed' && (
                       <View style={[styles.itemBtn, styles.itemBtnSecondary, { flex: 1 }]}>
-                        <Text style={styles.itemBtnSecondaryText}>✅ Completed — +{item.type === 'give' ? 25 : 5} KP earned</Text>
+                        <Text style={styles.itemBtnSecondaryText}>✅ Completed — +{item.type === 'give' ? 25 : 5} Kindness Points earned</Text>
                       </View>
                     )}
                   </View>
@@ -1740,7 +1740,7 @@ export default function ActivityScreen() {
                                   user_id: partnerId,
                                   type: 'match',
                                   title: 'Exchange complete!',
-                                  body: `Both confirmed for "${cap(offer.item_title)}" — KP awarded!`,
+                                  body: `Both confirmed for "${cap(offer.item_title)}" — Kindness Points awarded!`,
                                   item_id: offer.item_id,
                                 }).catch(console.error)
                               } else {
@@ -1759,7 +1759,7 @@ export default function ActivityScreen() {
                                   item_id: offer.item_id,
                                 }).catch(console.error)
 
-                                showAlert('Confirmed!', `Waiting for ${result.partnerName || 'the other person'} to confirm their side. You'll rate and earn KP once they confirm.`)
+                                showAlert('Confirmed!', `Waiting for ${result.partnerName || 'the other person'} to confirm their side. You'll rate and earn Kindness Points once they confirm.`)
                               }
                             } catch (err: any) {
                               showAlert('Error', err.message || 'Failed to confirm')
@@ -1938,7 +1938,7 @@ export default function ActivityScreen() {
                             <Text style={{ fontSize: 13, fontWeight: '500', color: '#374151' }}>{cap(receipt.item_title)}</Text>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
                               <Text style={{ fontSize: 11, color: '#6B7280' }}>
-                                {CATEGORY_ICONS[receipt.category as Category] || '📦'} +{receipt.points_earned} KP
+                                {CATEGORY_ICONS[receipt.category as Category] || '📦'} +{receipt.points_earned} Kindness Points
                               </Text>
                               {receipt.rating ? (
                                 <Text style={{ fontSize: 11, color: '#F59E0B' }}>
@@ -2212,7 +2212,7 @@ export default function ActivityScreen() {
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                           <Text style={{ fontSize: 13 }}>{dTier.icon}</Text>
                           <Text style={{ fontSize: 13, fontWeight: '600', color: '#1B2A3D' }}>{dTier.name}</Text>
-                          <Text style={{ fontSize: 12, color: '#8B9AAD' }}>· {dProfile.points || 0} KP</Text>
+                          <Text style={{ fontSize: 12, color: '#8B9AAD' }}>· {dProfile.points || 0} Kindness Points</Text>
                         </View>
                       )}
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -2496,12 +2496,12 @@ export default function ActivityScreen() {
 
                   {/* Profile details */}
                   <View style={{ backgroundColor: '#F8F6F3', borderRadius: 10, padding: 10, marginBottom: 10 }}>
-                    {/* Tier + KP */}
+                    {/* Tier + Kindness Points */}
                     {profileTier && (
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                         <Text style={{ fontSize: 13 }}>{profileTier.icon}</Text>
                         <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.dark }}>{profileTier.name}</Text>
-                        <Text style={{ fontSize: 12, color: '#8B9AAD' }}>· {offerProfile?.points || 0} KP</Text>
+                        <Text style={{ fontSize: 12, color: '#8B9AAD' }}>· {offerProfile?.points || 0} Kindness Points</Text>
                       </View>
                     )}
                     {/* Exchange count + reliability */}
@@ -2937,11 +2937,11 @@ export default function ActivityScreen() {
         <View style={styles.celebrateOverlay}>
           <Text style={styles.celebrateEmoji}>🎉</Text>
           <Text style={styles.celebrateTitle}>Exchange Complete!</Text>
-          <Text style={styles.celebrateKP}>+{celebrate.type === 'give' ? 25 : 5} KP</Text>
+          <Text style={styles.celebrateKP}>+{celebrate.type === 'give' ? 25 : 5} Kindness Points</Text>
           <Text style={styles.celebrateSub}>You've made a difference in {suburb ? suburb.split(',')[0] : 'your community'}!</Text>
           {!isPremium && (
             <View style={styles.celebratePlus}>
-              <Text style={styles.celebratePlusText}>⭐ With Kindred Plus you'd earn {celebrate.type === 'give' ? 50 : 10} KP (2x bonus!)</Text>
+              <Text style={styles.celebratePlusText}>⭐ With Kindred Plus you'd earn {celebrate.type === 'give' ? 50 : 10} Kindness Points (2x bonus!)</Text>
             </View>
           )}
         </View>

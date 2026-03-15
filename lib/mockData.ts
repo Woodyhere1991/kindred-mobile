@@ -106,7 +106,7 @@ export const INITIAL_NOTIFICATIONS = [
   { id: 2, type: 'claimed', text: 'Tane W. wants your couch', time: '30 min ago', read: false, itemId: 4 },
   { id: 3, type: 'arranged', text: 'Drop-off confirmed at Community Centre', time: '1 hr ago', read: true },
   { id: 4, type: 'message', text: 'New message from Jordan M.', time: '1 hr ago', read: true },
-  { id: 5, type: 'points', text: 'You earned +30 KP for listing!', time: '2 hrs ago', read: true },
+  { id: 5, type: 'points', text: 'You earned +30 Kindness Points for listing!', time: '2 hrs ago', read: true },
   { id: 6, type: 'reminder', text: "Accept or decline Tane W.'s match (20h left)", time: '4 hrs ago', read: false },
 ]
 

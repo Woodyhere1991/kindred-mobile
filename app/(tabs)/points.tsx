@@ -38,7 +38,7 @@ export default function PointsScreen() {
               <View style={styles.progressBar}>
                 <View style={[styles.progressFill, { width: `${tierProgress}%` }]} />
               </View>
-              <Text style={styles.tierNext}>{nextTier.min - points} KP to {nextTier.icon} {nextTier.name}</Text>
+              <Text style={styles.tierNext}>{nextTier.min - points} Kindness Points to {nextTier.icon} {nextTier.name}</Text>
             </>
           )}
         </View>
@@ -74,7 +74,7 @@ export default function PointsScreen() {
                         </Text>
                         <Text style={styles.leaderStat}>{entry.completed_exchanges} exchanges</Text>
                       </View>
-                      <Text style={styles.leaderKp}>{entry.points} KP</Text>
+                      <Text style={styles.leaderKp}>{entry.points} Kindness Points</Text>
                     </View>
                   )
                 })
@@ -101,7 +101,7 @@ export default function PointsScreen() {
                       {tier.name}
                       {isCurrent && <Text style={[styles.tierBadge, { backgroundColor: tier.color + '18', color: tier.color }]}> You're here</Text>}
                     </Text>
-                    <Text style={styles.tierMin}>{tier.min} KP</Text>
+                    <Text style={styles.tierMin}>{tier.min} Kindness Points</Text>
                   </View>
                   <Text style={styles.tierPerks}>
                     {tier.name === 'Newcomer' ? 'Community feed, basic matching, create listings (3/day)' :
