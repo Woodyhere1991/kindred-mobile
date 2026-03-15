@@ -2094,18 +2094,18 @@ export default function ActivityScreen() {
                             <Text style={[styles.itemTypeBadgeText, b.type === 'give' ? styles.itemTypeBadgeTextGive : styles.itemTypeBadgeTextNeed]}>{b.type === 'give' ? 'Give' : 'Need'}</Text>
                           </View>
                         </View>
-                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }} onPress={() => openProfile(b.user_id)}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                           <View>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
                               <Text style={{ fontSize: 11 }}>{getTierIcon(browseProfile?.points ?? 0)}</Text>
-                              <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A9E8F' }}>{browseProfile?.display_name ? cap(browseProfile.display_name) : 'Someone nearby'}</Text>
+                              <Text style={{ fontSize: 14, fontWeight: '600', color: '#1B2A3D' }}>{browseProfile?.display_name ? cap(browseProfile.display_name) : 'Someone nearby'}</Text>
                               {browseProfile?.is_premium && <Text style={{ fontSize: 11, color: '#D97706' }}>⭐Plus</Text>}
                             </View>
-                            <Text style={{ fontSize: 10, color: '#B0BEC5' }}>View profile</Text>
+                            <TouchableOpacity onPress={() => openProfile(b.user_id)}><Text style={{ fontSize: 10, color: '#1A9E8F' }}>View profile</Text></TouchableOpacity>
                           </View>
                           {b.distance != null && <Text style={styles.distanceText}>{formatDistance(b.distance)}</Text>}
                           {b.category === 'food' && <View style={styles.tagBadge}><Text style={styles.tagBadgeText}>🥦 Food</Text></View>}
-                        </TouchableOpacity>
+                        </View>
                       </View>
                     </View>
                   </View>

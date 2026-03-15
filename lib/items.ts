@@ -133,10 +133,22 @@ export async function browseItems(options: {
 }
 
 /** Find complementary items nearby (give↔need smart matching) */
+/** Extract size and detail keywords from title + note for smarter matching */
+function extractKeywords(title: string, note?: string | null): string[] {
+  const text = `${title} ${note || ''}`.toLowerCase()
+  // Size patterns: "size 12", "sz 10", "M", "XL", "12mo", etc.
+  const sizePatterns = text.match(/\b(xx?[sl]|[sl]|[0-9]+\s*(mo|months?)?|size\s*[0-9]+|sz\s*[0-9]+)\b/gi) || []
+  // Meaningful words (3+ chars, skip common filler)
+  const filler = new Set(['the', 'and', 'for', 'has', 'with', 'that', 'this', 'from', 'some', 'any', 'good', 'great', 'like', 'just', 'very', 'been', 'have', 'will', 'please', 'thanks', 'still', 'also', 'need', 'give', 'item', 'condition', 'used', 'free'])
+  const words = text.split(/\s+/).filter(w => w.length >= 3 && !filler.has(w))
+  return [...new Set([...sizePatterns.map(s => s.toLowerCase().replace(/\s+/g, '')), ...words])]
+}
+
 export async function findSmartMatches(item: {
   id: string
   type: 'give' | 'need'
   title: string
+  note?: string | null
   category: string
   suburb: string
   lat?: number | null
@@ -167,10 +179,21 @@ export async function findSmartMatches(item: {
   // Prefer same category
   query = query.eq('category', item.category)
 
-  const { data, error } = await query.order('created_at', { ascending: false }).limit(5)
+  // Fetch more candidates so we can rank by keyword relevance
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(20)
   if (error) throw error
 
   let matches = (data as BrowseItem[]) || []
+
+  // Score by keyword overlap (title + note)
+  const myKeywords = extractKeywords(item.title, item.note)
+  if (myKeywords.length > 0) {
+    matches = matches.map(m => {
+      const theirKeywords = extractKeywords(m.title, m.note)
+      const overlap = myKeywords.filter(k => theirKeywords.includes(k)).length
+      return { ...m, _keywordScore: overlap }
+    })
+  }
 
   // Calculate distances
   if (item.lat && item.lng) {
@@ -178,8 +201,18 @@ export async function findSmartMatches(item: {
       ...m,
       distance: m.lat && m.lng ? getDistanceKm(item.lat!, item.lng!, m.lat, m.lng) : undefined,
     }))
-    matches.sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999))
   }
+
+  // Sort: keyword matches first, then by distance
+  matches.sort((a, b) => {
+    const scoreA = (a as any)._keywordScore ?? 0
+    const scoreB = (b as any)._keywordScore ?? 0
+    if (scoreB !== scoreA) return scoreB - scoreA
+    return (a.distance ?? 999) - (b.distance ?? 999)
+  })
+
+  // Return top 5
+  matches = matches.slice(0, 5)
 
   // If no same-category matches, try title-based search across all categories
   if (matches.length === 0) {
