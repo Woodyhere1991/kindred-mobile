@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, SafeAreaView, ScrollView,
-  KeyboardAvoidingView, Platform, Alert,
+  KeyboardAvoidingView, Platform,
 } from 'react-native'
 import { router, Link, useLocalSearchParams } from 'expo-router'
 import * as WebBrowser from 'expo-web-browser'
@@ -10,7 +10,6 @@ import { Colors, Radius } from '../../constants/theme'
 import { signUp, sendPhoneOtp, verifyPhoneOtp } from '../../lib/auth'
 import { useApp } from '../../lib/appContext'
 import { supabase } from '../../lib/supabase'
-import { getCurrentLocation } from '../../lib/location'
 import { searchAddresses, getAddressCoords, AddySuggestion } from '../../lib/addressAutocomplete'
 import { containsProfanity } from '../../lib/profanityFilter'
 
@@ -33,7 +32,6 @@ export default function OnboardingScreen() {
   const [suburb, setSuburb] = useState('')
   const [homeLat, setHomeLat] = useState<number | null>(null)
   const [homeLng, setHomeLng] = useState<number | null>(null)
-  const [locating, setLocating] = useState(false)
   const [homeAddress, setHomeAddress] = useState('')
   const [addressSuggestions, setAddressSuggestions] = useState<AddySuggestion[]>([])
   const [addressDebounce, setAddressDebounce] = useState<ReturnType<typeof setTimeout> | null>(null)
@@ -105,7 +103,7 @@ export default function OnboardingScreen() {
     ? true
     : emailValid && passwordValid && password === confirmPassword
   const nameHasProfanity = containsProfanity(name)
-  const isStep1Valid = name.length >= 2 && !nameHasProfanity && !!dobDate && isOver18 && suburb.length > 0 && homeLat !== null
+  const isStep1Valid = name.length >= 2 && !nameHasProfanity && !!dobDate && isOver18
   const isStep2Valid = acceptedTerms && acceptedDisclaimer
 
   // --- Phone OTP ---
@@ -246,6 +244,7 @@ export default function OnboardingScreen() {
             suburb: suburb || null,
             lat: homeLat,
             lng: homeLng,
+            home_address: homeAddress || null,
             dob: dob || null,
             avatar_url: user.user_metadata?.avatar_url || null,
           })
@@ -269,6 +268,7 @@ export default function OnboardingScreen() {
         phone: phone || undefined,
         lat: homeLat ?? undefined,
         lng: homeLng ?? undefined,
+        home_address: homeAddress || undefined,
       })
       if (__DEV__) console.log('[Signup] Result:', { userId: user?.id, hasSession: !!session })
 
@@ -432,50 +432,17 @@ export default function OnboardingScreen() {
                 {dobError || 'You must be 18 or older to use Kindred.'}
               </Text>
 
-              <Text style={styles.label}>Home Location</Text>
+              <Text style={styles.label}>Home Address <Text style={{ fontWeight: '400', color: '#8B9AAD' }}>(optional)</Text></Text>
               {suburb ? (
                 <View style={{ backgroundColor: '#E8F8F5', borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: Colors.teal }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.teal }}>📍 {suburb}</Text>
-                  <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>Location saved — you can change this later in Profile</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.teal }}>📍 {homeAddress || suburb}</Text>
+                  <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>Address saved — you can change this later in Profile</Text>
+                  <TouchableOpacity onPress={() => { setSuburb(''); setHomeLat(null); setHomeLng(null); setHomeAddress('') }} style={{ marginTop: 6 }}>
+                    <Text style={{ fontSize: 12, color: '#C53030' }}>Clear</Text>
+                  </TouchableOpacity>
                 </View>
               ) : (
                 <>
-                  <TouchableOpacity
-                    style={[styles.input, { justifyContent: 'center', backgroundColor: locating ? '#F2EDE7' : '#fff' }]}
-                    disabled={locating}
-                    onPress={async () => {
-                      setLocating(true)
-                      try {
-                        const loc = await getCurrentLocation()
-                        if (loc) {
-                          setHomeLat(loc.lat)
-                          setHomeLng(loc.lng)
-                          // Reverse geocode to get suburb name
-                          try {
-                            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${loc.lat}&lon=${loc.lng}&format=json&zoom=14`)
-                            const data = await res.json()
-                            const s = data.address?.suburb || data.address?.town || data.address?.city || data.address?.village || ''
-                            if (s) setSuburb(s)
-                            else setSuburb('Home')
-                          } catch {
-                            setSuburb('Home')
-                          }
-                        } else {
-                          const msg = 'Location permission denied. Enter your address below instead.'
-                          Platform.OS === 'web' ? alert(msg) : Alert.alert('Permission Needed', msg)
-                        }
-                      } catch (err) {
-                        console.error('Location error:', err)
-                      } finally {
-                        setLocating(false)
-                      }
-                    }}
-                  >
-                    <Text style={{ color: locating ? '#8B9AAD' : Colors.teal, fontWeight: '600', fontSize: 14 }}>
-                      {locating ? 'Getting location...' : '📍 Use my current location'}
-                    </Text>
-                  </TouchableOpacity>
-                  <Text style={{ fontSize: 12, color: '#8B9AAD', marginTop: 6, marginBottom: 6, textAlign: 'center' }}>or search your address</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="Start typing your address..."
@@ -513,43 +480,7 @@ export default function OnboardingScreen() {
                       ))}
                     </View>
                   )}
-                  {homeAddress.length >= 3 && addressSuggestions.length === 0 && !homeLat && (
-                    <View style={{ marginTop: 8, padding: 12, backgroundColor: '#FFF8E1', borderRadius: 10, borderWidth: 1, borderColor: '#D4A843' }}>
-                      <Text style={{ fontSize: 12, color: '#1B2A3D', marginBottom: 8 }}>Can't find your address? Enter your suburb manually:</Text>
-                      <TextInput
-                        style={[styles.input, { marginBottom: 4 }]}
-                        placeholder="e.g. Inglewood, Taranaki"
-                        placeholderTextColor={Colors.greyLight}
-                        value={suburb}
-                        onChangeText={setSuburb}
-                      />
-                      <TouchableOpacity
-                        style={{ backgroundColor: Colors.teal, borderRadius: 10, padding: 10, alignItems: 'center', marginTop: 4, opacity: suburb.length < 2 ? 0.5 : 1 }}
-                        disabled={suburb.length < 2}
-                        onPress={async () => {
-                          // Try to geocode the suburb name for approximate coords
-                          try {
-                            const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(suburb + ', New Zealand')}&format=json&limit=1`)
-                            const data = await resp.json()
-                            if (data && data.length > 0) {
-                              setHomeLat(parseFloat(data[0].lat))
-                              setHomeLng(parseFloat(data[0].lon))
-                            } else {
-                              // Use approximate NZ center if geocode fails
-                              setHomeLat(-39.0)
-                              setHomeLng(174.0)
-                            }
-                          } catch {
-                            setHomeLat(-39.0)
-                            setHomeLng(174.0)
-                          }
-                        }}
-                      >
-                        <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Set Suburb</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                  <Text style={{ fontSize: 11, color: '#8B9AAD', marginTop: 4 }}>Your address is never stored — only coordinates are saved</Text>
+                  <Text style={{ fontSize: 11, color: '#8B9AAD', marginTop: 4 }}>You can set this later in your profile. Browse requires a home address to show items near you.</Text>
                 </>
               )}
             </View>

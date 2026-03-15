@@ -6,7 +6,6 @@ import { useApp } from '../../lib/appContext'
 import { signOut, sendPhoneOtp, verifyPhoneOtp } from '../../lib/auth'
 import { supabase } from '../../lib/supabase'
 import { DROP_POINTS, getMeetupStats, getHomePickupCounts } from '../../lib/utils'
-import { getCurrentLocation } from '../../lib/location'
 import { searchAddresses, getAddressCoords, AddySuggestion } from '../../lib/addressAutocomplete'
 import { submitVerification, getMyVerification, IdVerification } from '../../lib/verification'
 import { containsProfanity, capitalizeName } from '../../lib/profanityFilter'
@@ -20,9 +19,7 @@ export default function ProfileScreen() {
   } = useApp()
   const [editingProfile, setEditingProfile] = useState(false)
   const [editName, setEditName] = useState(userName)
-  const [editSuburb, setEditSuburb] = useState(suburb)
   const [saving, setSaving] = useState(false)
-  const [locating, setLocating] = useState(false)
   const [homeAddress, setHomeAddress] = useState('')
   const [addressSuggestions, setAddressSuggestions] = useState<AddySuggestion[]>([])
   const [savingAddress, setSavingAddress] = useState(false)
@@ -30,14 +27,9 @@ export default function ProfileScreen() {
   const [notifPush, setNotifPush] = useState(profile?.notification_push ?? true)
   const [notifEmail, setNotifEmail] = useState(profile?.notification_email ?? true)
   const [notifMatches, setNotifMatches] = useState(profile?.notification_matches ?? true)
-  const [editingEmergency, setEditingEmergency] = useState(false)
-  const [emergName, setEmergName] = useState(profile?.emergency_contact_name || '')
-  const [emergPhone, setEmergPhone] = useState(profile?.emergency_contact_phone || '')
-  const [savingEmergency, setSavingEmergency] = useState(false)
   const [showMeetPoints, setShowMeetPoints] = useState(false)
   const [meetupStats, setMeetupStats] = useState<Record<string, number>>({})
   const [myHomePickups, setMyHomePickups] = useState(0)
-  const [showEmergencyInfo, setShowEmergencyInfo] = useState(false)
   // Blocked users
   const [showBlockedUsers, setShowBlockedUsers] = useState(false)
   const [blockedUsers, setBlockedUsers] = useState<{ id: string; blocked_id: string; display_name: string | null }[]>([])
@@ -69,10 +61,16 @@ export default function ProfileScreen() {
     try {
       const coords = await getAddressCoords(suggestion.id)
       if (coords) {
-        await supabase.from('profiles').update({ lat: coords.lat, lng: coords.lng }).eq('id', userId)
+        const suburbVal = coords.suburb || coords.city || suggestion.a.split(',')[1]?.trim() || ''
+        await supabase.from('profiles').update({
+          lat: coords.lat,
+          lng: coords.lng,
+          home_address: suggestion.a,
+          suburb: suburbVal || undefined,
+        }).eq('id', userId)
         await refreshProfile()
         setHomeAddress('')
-        const msg = 'Home location saved! Your address was not stored — only the coordinates.'
+        const msg = 'Home address saved!'
         Platform.OS === 'web' ? alert(msg) : Alert.alert('Done', msg)
       } else {
         const msg = 'Could not get coordinates for that address. Try another one.'
@@ -244,13 +242,13 @@ export default function ProfileScreen() {
         .from('profiles')
         .update({
           display_name: capitalizeName(editName),
-          suburb: editSuburb,
           updated_at: new Date().toISOString(),
         })
         .eq('id', userId)
       if (error) throw error
       await refreshProfile()
-      setEditingProfile(false)
+      const msg = 'Name saved!'
+      Platform.OS === 'web' ? alert(msg) : Alert.alert('Done', msg)
     } catch (err: any) {
       Platform.OS === 'web' ? alert(err.message || 'Failed to save profile') : Alert.alert('Error', err.message || 'Failed to save profile')
     } finally {
@@ -321,28 +319,6 @@ export default function ProfileScreen() {
       await refreshProfile()
     } catch (err: any) {
       Platform.OS === 'web' ? alert(err.message || 'Failed to upload photo') : Alert.alert('Error', err.message || 'Failed to upload photo')
-    }
-  }
-
-  const handleSaveEmergency = async () => {
-    if (!userId) return
-    setSavingEmergency(true)
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          emergency_contact_name: emergName,
-          emergency_contact_phone: emergPhone,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', userId)
-      if (error) throw error
-      await refreshProfile()
-      setEditingEmergency(false)
-    } catch (err: any) {
-      Platform.OS === 'web' ? alert(err.message || 'Failed to save emergency contact') : Alert.alert('Error', err.message || 'Failed to save emergency contact')
-    } finally {
-      setSavingEmergency(false)
     }
   }
 
@@ -509,7 +485,7 @@ export default function ProfileScreen() {
             <Text style={styles.profileName}>{userName || 'Set your name'}</Text>
             {isPremium && <Text style={{ fontSize: 13, color: '#D97706' }}>⭐Plus</Text>}
           </View>
-          <Text style={styles.profileSub}>{suburb || 'Set your suburb'}</Text>
+          <Text style={styles.profileSub}>{profile?.home_address ? profile.home_address : suburb ? suburb : 'Set your home address'}</Text>
 
           <View style={styles.badges}>
             {emailVerified && <View style={styles.badge}><Text style={styles.badgeText}>✓ Email</Text></View>}
@@ -536,6 +512,21 @@ export default function ProfileScreen() {
             <View style={styles.stat}>
               <Text style={styles.statVal}>{myReliability.completed}</Text>
               <Text style={styles.statLabel}>Exchanges</Text>
+            </View>
+          </View>
+
+          {/* Home exchanges in profile card */}
+          <View style={{ borderTopWidth: 1, borderTopColor: '#F2EDE7', marginTop: 12, paddingTop: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={{ fontSize: 16 }}>🏠</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#1B2A3D' }}>Home Exchanges</Text>
+                <Text style={{ fontSize: 11, color: '#8B9AAD' }}>
+                  {myHomePickups > 0
+                    ? `${myHomePickups} successful ${myHomePickups === 1 ? 'pickup/drop off' : 'pickups/drop offs'} at your home`
+                    : 'No home exchanges yet'}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
@@ -622,94 +613,20 @@ export default function ProfileScreen() {
         {/* Privacy note */}
         {(!idVerified || !profile?.phone_verified || !emailVerified) && (
           <Text style={{ fontSize: 11, color: '#8B9AAD', textAlign: 'center', marginTop: -4, marginBottom: 8, paddingHorizontal: 20 }}>
-            Your ID, phone number, and address are never shared publicly. ID photos are deleted after review and never stored.
+            Your ID, phone number, and home address are never shared publicly. ID photos are deleted after review and never stored.
           </Text>
         )}
-
-        {/* Home Location card */}
-        <View style={styles.settingsCard}>
-          <View style={{ padding: 16 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <Text style={{ fontSize: 20 }}>🏠</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#1B2A3D' }}>Home Location</Text>
-                {profile?.lat ? (
-                  <Text style={{ fontSize: 12, color: '#6BA368' }}>Location saved — Browse shows items near you</Text>
-                ) : (
-                  <Text style={{ fontSize: 12, color: '#8B9AAD' }}>Set your home so Browse shows items near you</Text>
-                )}
-              </View>
-            </View>
-            <TouchableOpacity
-              style={[styles.locationBtn, locating ? { opacity: 0.6 } : undefined]}
-              disabled={locating}
-              onPress={async () => {
-                const doSave = async () => {
-                  setLocating(true)
-                  try {
-                    const loc = await getCurrentLocation()
-                    if (loc) {
-                      await supabase.from('profiles').update({ lat: loc.lat, lng: loc.lng }).eq('id', userId)
-                      await refreshProfile()
-                      const msg = 'Home location saved!'
-                      Platform.OS === 'web' ? alert(msg) : Alert.alert('Done', msg)
-                    } else {
-                      const msg = 'Location permission denied. Enable it in your device settings, or enter your address below.'
-                      Platform.OS === 'web' ? alert(msg) : Alert.alert('Permission Needed', msg)
-                    }
-                  } catch (err) {
-                    console.error('Location error:', err)
-                  } finally {
-                    setLocating(false)
-                  }
-                }
-                if (Platform.OS === 'web') {
-                  if (confirm('Are you at home right now?')) doSave()
-                  else alert('No worries — you can enter your home address below instead.')
-                } else {
-                  Alert.alert('Are you at home?', 'We\'ll save this as your home location for browsing nearby items.', [
-                    { text: 'No', style: 'cancel', onPress: () => Alert.alert('Tip', 'You can enter your home address below instead.') },
-                    { text: 'Yes, I\'m home', onPress: doSave },
-                  ])
-                }
-              }}
-            >
-              <Text style={styles.locationBtnText}>{locating ? 'Getting location...' : profile?.lat ? '📍 Update from GPS' : '📍 Set home from GPS'}</Text>
-            </TouchableOpacity>
-            <Text style={styles.formLabelSmall}>Or search your home address</Text>
-            <TextInput
-              style={[styles.editInput, { marginBottom: 0 }]}
-              value={homeAddress}
-              onChangeText={handleAddressInput}
-              placeholder="Start typing your address..."
-              placeholderTextColor="#C8D1DC"
-              editable={!savingAddress}
-            />
-            {savingAddress && (
-              <Text style={{ fontSize: 12, color: '#1A9E8F', marginTop: 6 }}>Saving location...</Text>
-            )}
-            {addressSuggestions.length > 0 && (
-              <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#F2EDE7', borderRadius: 10, marginTop: 4, overflow: 'hidden' }}>
-                {addressSuggestions.map((s, i) => (
-                  <TouchableOpacity
-                    key={s.id}
-                    style={{ padding: 12, borderBottomWidth: i < addressSuggestions.length - 1 ? 1 : 0, borderBottomColor: '#F2EDE7' }}
-                    onPress={() => handleSelectAddress(s)}
-                  >
-                    <Text style={{ fontSize: 13, color: '#1B2A3D' }}>{s.a}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-            <Text style={styles.privacyNote}>Your address is never stored — only coordinates are saved</Text>
-          </View>
-        </View>
 
         {/* Account section */}
         <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.settingsCard}>
-          <TouchableOpacity style={styles.settingsRow} onPress={() => { setEditingProfile(!editingProfile); setEditName(userName); setEditSuburb(suburb) }}>
-            <Text style={styles.settingsLabel}>Edit Profile</Text>
+          <TouchableOpacity style={styles.settingsRow} onPress={() => { setEditingProfile(!editingProfile); setEditName(userName); setHomeAddress(''); setAddressSuggestions([]) }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.settingsLabel}>Edit Profile</Text>
+              {!profile?.home_address && !profile?.lat && (
+                <Text style={{ fontSize: 11, color: '#C53030', marginTop: 2 }}>Add your home address so Browse can find items near you</Text>
+              )}
+            </View>
             <Text style={styles.settingsArrow}>›</Text>
           </TouchableOpacity>
           {editingProfile && (
@@ -722,21 +639,57 @@ export default function ProfileScreen() {
                 placeholder="Your name"
                 placeholderTextColor="#C8D1DC"
               />
-              <Text style={styles.formLabel}>Suburb</Text>
-              <TextInput
-                style={styles.editInput}
-                value={editSuburb}
-                onChangeText={setEditSuburb}
-                placeholder="Your suburb"
-                placeholderTextColor="#C8D1DC"
-              />
               <TouchableOpacity
                 style={[styles.saveBtn, saving && { opacity: 0.6 }]}
                 onPress={handleSaveProfile}
                 disabled={saving}
               >
-                <Text style={styles.saveBtnText}>{saving ? 'Saving...' : 'Save'}</Text>
+                <Text style={styles.saveBtnText}>{saving ? 'Saving...' : 'Save Name'}</Text>
               </TouchableOpacity>
+
+              <View style={{ height: 1, backgroundColor: '#F2EDE7', marginVertical: 12 }} />
+
+              <Text style={styles.formLabel}>Home Address</Text>
+              {profile?.home_address && (
+                <View style={{ backgroundColor: '#E8F8F5', borderRadius: 10, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#1A9E8F' }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#1B2A3D' }}>📍 {profile.home_address}</Text>
+                  <TouchableOpacity onPress={async () => {
+                    const doIt = async () => {
+                      await supabase.from('profiles').update({ home_address: null, lat: null, lng: null, suburb: null }).eq('id', userId)
+                      await refreshProfile()
+                    }
+                    if (Platform.OS === 'web') { if (confirm('Remove your home address?')) doIt() }
+                    else Alert.alert('Remove Address?', 'This will also remove your location from Browse.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Remove', style: 'destructive', onPress: doIt }])
+                  }} style={{ marginTop: 6 }}>
+                    <Text style={{ fontSize: 12, color: '#C53030' }}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              <TextInput
+                style={[styles.editInput, { marginBottom: 0 }]}
+                value={homeAddress}
+                onChangeText={handleAddressInput}
+                placeholder={profile?.home_address ? 'Search a new address...' : 'Start typing your address...'}
+                placeholderTextColor="#C8D1DC"
+                editable={!savingAddress}
+              />
+              {savingAddress && (
+                <Text style={{ fontSize: 12, color: '#1A9E8F', marginTop: 6 }}>Saving address...</Text>
+              )}
+              {addressSuggestions.length > 0 && (
+                <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#F2EDE7', borderRadius: 10, marginTop: 4, overflow: 'hidden' }}>
+                  {addressSuggestions.map((s, i) => (
+                    <TouchableOpacity
+                      key={s.id}
+                      style={{ padding: 12, borderBottomWidth: i < addressSuggestions.length - 1 ? 1 : 0, borderBottomColor: '#F2EDE7' }}
+                      onPress={() => handleSelectAddress(s)}
+                    >
+                      <Text style={{ fontSize: 13, color: '#1B2A3D' }}>{s.a}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              <Text style={{ fontSize: 11, color: '#8B9AAD', marginTop: 6 }}>Your address is stored securely and only shared when you choose to in a chat meetup</Text>
             </View>
           )}
           <TouchableOpacity style={styles.settingsRow} onPress={handleChangePassword}>
@@ -748,60 +701,10 @@ export default function ProfileScreen() {
         {/* Safety section */}
         <Text style={styles.sectionTitle}>Safety</Text>
         <View style={styles.settingsCard}>
-          <TouchableOpacity style={styles.settingsRow} onPress={() => { setEditingEmergency(!editingEmergency); setEmergName(profile?.emergency_contact_name || ''); setEmergPhone(profile?.emergency_contact_phone || '') }}>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={styles.settingsLabel}>Emergency Contact</Text>
-                <TouchableOpacity onPress={(e) => { e.stopPropagation(); setShowEmergencyInfo(!showEmergencyInfo) }}>
-                  <View style={{ width: 16, height: 16, borderRadius: 8, borderWidth: 1.5, borderColor: '#C8D1DC', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontSize: 10, fontWeight: '700', color: '#C8D1DC' }}>i</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-              {profile?.emergency_contact_name ? (
-                <Text style={{ fontSize: 12, color: '#8B9AAD', marginTop: 2 }}>{profile.emergency_contact_name} — {profile.emergency_contact_phone || 'No phone'}</Text>
-              ) : (
-                <Text style={{ fontSize: 12, color: '#C53030', marginTop: 2 }}>Not set — tap to add</Text>
-              )}
-            </View>
-            <Text style={styles.settingsArrow}>›</Text>
-          </TouchableOpacity>
-          {showEmergencyInfo && (
-            <View style={{ paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#F8F6F3', borderBottomWidth: 1, borderBottomColor: '#F2EDE7' }}>
-              <Text style={{ fontSize: 12, color: '#8B9AAD', lineHeight: 18 }}>
-                Add someone you trust so they know when you're heading to an exchange. Your contact is private and only visible to you.
-              </Text>
-            </View>
-          )}
-          {editingEmergency && (
-            <View style={styles.editProfile}>
-              <Text style={styles.formLabel}>Contact Name</Text>
-              <TextInput style={styles.editInput} value={emergName} onChangeText={setEmergName} placeholder="e.g. Mum, Partner, Flatmate" placeholderTextColor="#C8D1DC" />
-              <Text style={styles.formLabel}>Phone Number</Text>
-              <TextInput style={styles.editInput} value={emergPhone} onChangeText={setEmergPhone} placeholder="e.g. 021 123 4567" placeholderTextColor="#C8D1DC" keyboardType="phone-pad" />
-              <TouchableOpacity style={[styles.saveBtn, savingEmergency && { opacity: 0.6 }]} onPress={handleSaveEmergency} disabled={savingEmergency}>
-                <Text style={styles.saveBtnText}>{savingEmergency ? 'Saving...' : 'Save'}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
           <TouchableOpacity style={styles.settingsRow} onPress={() => { setShowBlockedUsers(true); loadBlockedUsers() }}>
             <Text style={styles.settingsLabel}>Blocked Users</Text>
             <Text style={styles.settingsArrow}>›</Text>
           </TouchableOpacity>
-          {/* Home pickup stats */}
-          <View style={[styles.settingsRow, { borderBottomWidth: 1 }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-              <Text style={{ fontSize: 16 }}>🏠</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.settingsLabel}>Home Exchanges</Text>
-                <Text style={{ fontSize: 12, color: '#8B9AAD', marginTop: 2 }}>
-                  {myHomePickups > 0
-                    ? `${myHomePickups} successful ${myHomePickups === 1 ? 'pickup/drop off' : 'pickups/drop offs'} at your home`
-                    : 'No home exchanges yet — this builds over time'}
-                </Text>
-              </View>
-            </View>
-          </View>
           <TouchableOpacity style={[styles.settingsRow, !showMeetPoints && { borderBottomWidth: 0 }]} onPress={() => { setShowMeetPoints(!showMeetPoints); if (!showMeetPoints) getMeetupStats().then(setMeetupStats).catch(() => {}) }}>
             <View style={{ flex: 1 }}>
               <Text style={styles.settingsLabel}>Meet Up Points</Text>
@@ -1128,12 +1031,8 @@ const styles = StyleSheet.create({
   editInput: { borderWidth: 2, borderColor: '#F2EDE7', borderRadius: 10, padding: 14, marginBottom: 12, fontSize: 15, color: '#1B2A3D', backgroundColor: '#fff' },
   saveBtn: { backgroundColor: '#1A9E8F', paddingVertical: 12, borderRadius: 50, alignItems: 'center' },
   saveBtnText: { color: '#fff', fontWeight: '600', fontSize: 13 },
-  locationBtn: { backgroundColor: '#E8F5F3', borderRadius: 10, padding: 12, alignItems: 'center', marginBottom: 8 },
-  locationBtnText: { color: '#1A9E8F', fontWeight: '600', fontSize: 13 },
   locationSaved: { fontSize: 12, color: '#6BA368', marginBottom: 8 },
   locationHint: { fontSize: 12, color: '#8B9AAD', marginBottom: 8 },
-  formLabelSmall: { fontSize: 12, color: '#8B9AAD', marginBottom: 6, marginTop: 8 },
-  privacyNote: { fontSize: 10, color: '#C8D1DC', marginTop: 6, marginBottom: 12 },
   dangerBtn: { backgroundColor: '#FDE8E8', borderWidth: 2, borderColor: '#F5A5A5', borderRadius: 16, padding: 14, alignItems: 'center', marginTop: 8 },
   dangerBtnText: { color: '#C53030', fontWeight: '600', fontSize: 14 },
   dangerBtnLight: { backgroundColor: '#fff', marginBottom: 24 },

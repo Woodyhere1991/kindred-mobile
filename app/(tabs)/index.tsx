@@ -34,7 +34,7 @@ export default function ActivityScreen() {
   const {
     userId, points, setPoints, myItems, setMyItems, refreshItems,
     notifications, setNotifications, refreshNotifications, refreshConversations,
-    currentTier, unreadNotifs, suburb, userLat, userLng, profile, setProfile, userName, isPremium, myReliability,
+    currentTier, unreadNotifs, suburb, userLat, userLng, profile, userName, isPremium, myReliability,
   } = useApp()
 
   const [subTab, setSubTab] = useState<'activity' | 'nearby'>('activity')
@@ -198,16 +198,8 @@ export default function ActivityScreen() {
         if (loc) { lat = loc.lat; lng = loc.lng }
         else { lat = userLat; lng = userLng }
       } else {
-        // Use home coords, fall back to GPS
+        // Use home coords from profile
         lat = userLat; lng = userLng
-        if (!lat || !lng) {
-          const loc = await getCurrentLocation()
-          if (loc) {
-            lat = loc.lat; lng = loc.lng
-            await supabase.from('profiles').update({ lat, lng }).eq('id', userId)
-            if (profile) setProfile({ ...profile, lat, lng })
-          }
-        }
       }
 
       const items = await browseItems({
@@ -1985,7 +1977,23 @@ export default function ActivityScreen() {
         )}
 
         {/* ── NEARBY ── */}
-        {subTab === 'nearby' && (
+        {subTab === 'nearby' && !userLat && (
+          <View style={styles.emptyState}>
+            <Text style={{ fontSize: 40, marginBottom: 12 }}>🏠</Text>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: '#1B2A3D', marginBottom: 6, textAlign: 'center' }}>Set your home address to browse</Text>
+            <Text style={{ fontSize: 13, color: '#8B9AAD', textAlign: 'center', lineHeight: 19, marginBottom: 16 }}>
+              Browse shows items listed near you. Set your home address in your Profile to get started.
+            </Text>
+            <TouchableOpacity
+              style={{ backgroundColor: '#1A9E8F', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 10 }}
+              onPress={() => router.push('/(tabs)/profile')}
+            >
+              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Go to Profile</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {subTab === 'nearby' && userLat && (
           <>
             {/* Search bar + radius */}
             <View style={styles.searchRow}>

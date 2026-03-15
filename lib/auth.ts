@@ -4,7 +4,7 @@ import { supabase } from './supabase'
 export async function signUp(
   email: string,
   password: string,
-  metadata?: { display_name?: string; dob?: string; suburb?: string; phone?: string; lat?: number; lng?: number },
+  metadata?: { display_name?: string; dob?: string; suburb?: string; phone?: string; lat?: number; lng?: number; home_address?: string },
 ) {
   const { data, error } = await supabase.auth.signUp({
     email,

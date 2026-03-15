@@ -28,6 +28,7 @@ interface Profile {
   mover_count: number
   lat: number | null
   lng: number | null
+  home_address: string | null
 }
 
 interface AppState {
@@ -132,6 +133,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             display_name: meta.display_name || meta.full_name || meta.name || null,
             dob: meta.dob || null,
             suburb: meta.suburb || null,
+            home_address: meta.home_address || null,
+            lat: meta.lat || null,
+            lng: meta.lng || null,
             avatar_url: meta.avatar_url || null,
           })
           if (!insertErr) {
@@ -275,8 +279,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Profile completeness check (must have name and suburb)
-  const profileIncomplete = !!profile && (!profile.display_name || !profile.suburb)
+  // Profile completeness check (must have name)
+  const profileIncomplete = !!profile && !profile.display_name
 
   // Computed values
   const rawName = profile?.display_name ?? ''
