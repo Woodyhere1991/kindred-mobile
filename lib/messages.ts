@@ -57,13 +57,29 @@ export async function getConversations(userId: string) {
     .from('conversations')
     .select(`
       *,
-      other_user:profiles!conversations_other_user_id_fkey(display_name, avatar_url, id_verified, completed_exchanges, total_exchanges, is_premium, points, suburb),
       item:items!conversations_item_id_fkey(title, type, user_id, item_photos(public_url, position))
     `)
     .or(`user_id.eq.${userId},other_user_id.eq.${userId}`)
     .neq('archived', true)
     .order('last_message_at', { ascending: false, nullsFirst: false })
   if (error) throw error
+
+  // Batch-load profiles for both sides of every conversation
+  const allUserIds = new Set<string>()
+  for (const c of data || []) {
+    if ((c as any).user_id) allUserIds.add((c as any).user_id)
+    if ((c as any).other_user_id) allUserIds.add((c as any).other_user_id)
+  }
+  const profileMap: Record<string, Conversation['other_user']> = {}
+  if (allUserIds.size > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, display_name, avatar_url, id_verified, completed_exchanges, total_exchanges, is_premium, points, suburb')
+      .in('id', [...allUserIds])
+    for (const p of profiles || []) {
+      profileMap[p.id] = p as any
+    }
+  }
 
   // Batch unread counts in a single query instead of N+1
   const convIds = (data || []).map((c: any) => c.id)
@@ -80,7 +96,15 @@ export async function getConversations(userId: string) {
     }
   }
 
-  const convs = (data || []).map((conv: any) => ({ ...conv, unread_count: unreadMap[conv.id] ?? 0 })) as Conversation[]
+  // Normalise: other_user is always the OTHER person's profile
+  const convs = (data || []).map((conv: any) => {
+    const otherId = conv.other_user_id === userId ? conv.user_id : conv.other_user_id
+    return {
+      ...conv,
+      other_user: profileMap[otherId] || undefined,
+      unread_count: unreadMap[conv.id] ?? 0,
+    }
+  }) as Conversation[]
 
   // Load meetup data for conversations that have a match_id
   const matchIds = convs.map(c => c.match_id).filter(Boolean) as string[]

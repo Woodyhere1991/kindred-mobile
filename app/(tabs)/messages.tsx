@@ -361,15 +361,12 @@ export default function MessagesScreen() {
 
     const isOtherPersonOwner = itemOwnerId !== userId
 
-    if (itemType === 'give') {
-      return isOtherPersonOwner
-        ? `${otherName} is giving you ${itemName}`
-        : `You are giving ${otherName} ${itemName}`
-    } else {
-      return isOtherPersonOwner
-        ? `${otherName} needs ${itemName}`
-        : `You need ${itemName} from ${otherName}`
-    }
+    // "give" listing: owner is the giver. "need" listing: owner is the receiver.
+    const otherIsGiver = itemType === 'give' ? isOtherPersonOwner : !isOtherPersonOwner
+
+    return otherIsGiver
+      ? `${otherName} is giving you ${itemName}`
+      : `You are giving ${otherName} ${itemName}`
   }
 
   return (
