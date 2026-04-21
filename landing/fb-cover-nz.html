@@ -29,7 +29,6 @@
     position: relative;
   }
 
-  /* canvas-sized stage */
   .cover {
     width: 1640px;
     height: 856px;
@@ -41,77 +40,75 @@
     overflow: hidden;
   }
 
-  /* dashed rings echoing the ripple/community motif */
+  /* decorative rings — pushed further out so centre safe zone stays clean */
   .ring {
     position: absolute;
     border: 2px dashed var(--teal);
     border-radius: 50%;
     opacity: 0.22;
   }
-  .ring.r1 { width: 820px; height: 820px; right: -180px; top: -180px; }
-  .ring.r2 { width: 560px; height: 560px; right: -50px; top: -50px; opacity: 0.30; }
-  .ring.r3 { width: 320px; height: 320px; right: 70px; top: 70px; opacity: 0.40; }
-
+  .ring.r1 { width: 820px; height: 820px; right: -260px; top: -260px; }
+  .ring.r2 { width: 560px; height: 560px; right: -140px; top: -140px; opacity: 0.30; }
   .sprout {
     position: absolute;
-    left: -140px;
-    bottom: -140px;
-    width: 440px;
-    height: 440px;
+    left: -220px;
+    bottom: -220px;
+    width: 520px;
+    height: 520px;
     border: 2px dashed var(--warm);
     border-radius: 50%;
-    opacity: 0.35;
+    opacity: 0.30;
   }
 
-  /* mobile safe zone (centre area visible on mobile) — invisible but kept in mind */
-  .safe {
+  /* Central safe zone: 1240 x 500, everything critical sits inside it.
+     FB crops ~75px top+bottom on desktop and shows roughly the centre
+     horizontal band on mobile. */
+  .inner {
     position: absolute;
     left: 50%; top: 50%;
     transform: translate(-50%, -50%);
-    width: 820px; height: 462px;
-    /* outline: 2px dashed rgba(0,0,0,0.1); */
+    width: 1240px;
+    height: 500px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 40px;
   }
 
-  /* left column — headline */
-  .left {
-    position: absolute;
-    left: 96px;
-    top: 140px;
-    width: 820px;
-  }
+  .left { width: 720px; }
 
   .brand {
     display: flex;
     align-items: center;
-    gap: 18px;
-    margin-bottom: 28px;
+    gap: 14px;
+    margin-bottom: 18px;
   }
   .brand .mark {
-    width: 72px;
-    height: 72px;
-    border-radius: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
     background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%);
     display: grid;
     place-items: center;
-    box-shadow: 0 8px 24px rgba(26,158,143,0.35);
+    box-shadow: 0 6px 18px rgba(26,158,143,0.35);
   }
-  .brand .mark svg { width: 42px; height: 42px; }
+  .brand .mark svg { width: 32px; height: 32px; }
   .brand .name {
     font-family: 'Fraunces', serif;
     font-weight: 700;
-    font-size: 56px;
-    letter-spacing: -1.5px;
+    font-size: 42px;
+    letter-spacing: -1px;
     color: var(--dark);
   }
 
   h1 {
     font-family: 'Fraunces', serif;
     font-weight: 600;
-    font-size: 104px;
+    font-size: 78px;
     line-height: 0.98;
-    letter-spacing: -3px;
+    letter-spacing: -2.2px;
     color: var(--dark);
-    margin-bottom: 24px;
+    margin-bottom: 18px;
   }
   h1 .accent {
     color: var(--teal);
@@ -120,89 +117,85 @@
   }
 
   .sub {
-    font-size: 28px;
+    font-size: 22px;
     line-height: 1.35;
     color: #3a4a5d;
-    max-width: 700px;
-    margin-bottom: 36px;
+    max-width: 640px;
+    margin-bottom: 24px;
     font-weight: 400;
   }
 
   .pills {
     display: flex;
     flex-wrap: wrap;
-    gap: 14px;
+    gap: 10px;
+    margin-bottom: 20px;
   }
   .pill {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     background: white;
     border: 1.5px solid var(--teal-light);
     color: var(--dark);
-    padding: 12px 20px;
+    padding: 9px 16px;
     border-radius: 999px;
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 500;
     box-shadow: 0 2px 8px rgba(27,42,61,0.04);
   }
   .pill .tick {
-    width: 22px; height: 22px;
+    width: 18px; height: 18px;
     border-radius: 50%;
     background: var(--teal);
     color: white;
     display: grid;
     place-items: center;
-    font-size: 14px;
+    font-size: 11px;
     font-weight: 700;
   }
 
   .nz-tag {
-    position: absolute;
-    left: 96px;
-    bottom: 72px;
     display: inline-flex;
     align-items: center;
-    gap: 12px;
-    font-size: 18px;
+    gap: 10px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--teal-dark);
-    letter-spacing: 0.5px;
+    letter-spacing: 0.6px;
     text-transform: uppercase;
   }
   .nz-tag::before {
     content: "";
     display: inline-block;
-    width: 44px;
+    width: 32px;
     height: 2px;
     background: var(--teal);
   }
 
-  /* right column — phone mockup */
+  /* phone mockup */
   .right {
-    position: absolute;
-    right: 160px;
-    top: 50%;
-    transform: translateY(-50%);
+    position: relative;
+    flex-shrink: 0;
   }
 
   .phone {
-    width: 360px;
-    height: 720px;
+    width: 240px;
+    height: 480px;
     background: #111;
-    border-radius: 52px;
-    padding: 14px;
+    border-radius: 36px;
+    padding: 9px;
     box-shadow:
-      0 40px 80px -20px rgba(27,42,61,0.35),
-      0 20px 40px -12px rgba(27,42,61,0.20);
+      0 30px 60px -20px rgba(27,42,61,0.35),
+      0 14px 28px -12px rgba(27,42,61,0.20);
     position: relative;
   }
   .phone::before {
     content: "";
     position: absolute;
-    top: 22px; left: 50%;
+    top: 15px; left: 50%;
     transform: translateX(-50%);
-    width: 120px; height: 28px;
+    width: 80px; height: 20px;
     background: #000;
     border-radius: 999px;
     z-index: 2;
@@ -212,7 +205,7 @@
     width: 100%;
     height: 100%;
     background: var(--cream);
-    border-radius: 40px;
+    border-radius: 27px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -220,57 +213,53 @@
   }
 
   .screen-header {
-    padding: 56px 22px 16px;
+    padding: 38px 14px 12px;
     background: linear-gradient(180deg, var(--teal) 0%, var(--teal-dark) 100%);
     color: white;
   }
-  .screen-header .hello {
-    font-size: 13px;
-    opacity: 0.85;
-    font-weight: 500;
-  }
+  .screen-header .hello { font-size: 9px; opacity: 0.85; font-weight: 500; }
   .screen-header .user {
     font-family: 'Fraunces', serif;
-    font-size: 24px;
+    font-size: 17px;
     font-weight: 600;
     margin-top: 2px;
-    letter-spacing: -0.3px;
+    letter-spacing: -0.2px;
   }
   .screen-header .kp {
-    margin-top: 14px;
+    margin-top: 9px;
     background: rgba(255,255,255,0.18);
-    border-radius: 14px;
-    padding: 10px 14px;
+    border-radius: 10px;
+    padding: 7px 10px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 13px;
+    font-size: 9px;
   }
-  .screen-header .kp strong { font-size: 18px; font-weight: 700; }
+  .screen-header .kp strong { font-size: 12px; font-weight: 700; }
 
   .screen-body {
     flex: 1;
-    padding: 16px 16px 20px;
+    padding: 10px 10px 12px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
     background: var(--cream);
   }
 
   .card {
     background: white;
-    border-radius: 16px;
-    padding: 14px;
-    box-shadow: 0 2px 10px rgba(27,42,61,0.05);
+    border-radius: 11px;
+    padding: 9px;
+    box-shadow: 0 2px 8px rgba(27,42,61,0.05);
     display: flex;
-    gap: 12px;
+    gap: 8px;
   }
   .card .thumb {
-    width: 54px; height: 54px;
-    border-radius: 12px;
+    width: 38px; height: 38px;
+    border-radius: 9px;
     display: grid;
     place-items: center;
-    font-size: 28px;
+    font-size: 20px;
     flex-shrink: 0;
   }
   .card .t-food { background: #E8F5E9; }
@@ -279,25 +268,26 @@
   .card .body { flex: 1; min-width: 0; }
   .card .title {
     font-weight: 600;
-    font-size: 14px;
+    font-size: 10px;
     color: var(--dark);
-    margin-bottom: 4px;
+    margin-bottom: 3px;
+    line-height: 1.2;
   }
   .card .meta {
-    font-size: 11px;
+    font-size: 8px;
     color: var(--grey);
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
   }
   .card .badge {
     display: inline-block;
-    padding: 2px 8px;
+    padding: 1px 6px;
     border-radius: 999px;
-    font-size: 10px;
-    font-weight: 600;
+    font-size: 7px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.4px;
+    letter-spacing: 0.3px;
   }
   .badge.give { background: var(--teal-light); color: var(--teal-dark); }
   .badge.need { background: #FFF3E6; color: #B66A1E; }
@@ -305,7 +295,7 @@
   .tabs {
     display: flex;
     justify-content: space-around;
-    padding: 10px 8px 14px;
+    padding: 7px 6px 9px;
     background: white;
     border-top: 1px solid var(--sand);
   }
@@ -313,38 +303,37 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 3px;
-    font-size: 10px;
+    gap: 2px;
+    font-size: 7px;
     color: var(--grey);
     font-weight: 500;
   }
   .tabs .t.active { color: var(--teal); }
   .tabs .icon {
-    width: 20px; height: 20px;
-    border-radius: 6px;
+    width: 14px; height: 14px;
+    border-radius: 4px;
     background: currentColor;
     opacity: 0.8;
   }
 
-  /* little floating detail bubbles around phone */
   .bubble {
     position: absolute;
     background: white;
-    border-radius: 18px;
-    padding: 14px 20px;
-    box-shadow: 0 12px 32px rgba(27,42,61,0.16);
+    border-radius: 14px;
+    padding: 10px 14px;
+    box-shadow: 0 10px 24px rgba(27,42,61,0.14);
     display: flex;
     align-items: center;
-    gap: 12px;
-    font-size: 18px;
+    gap: 9px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--dark);
     white-space: nowrap;
     z-index: 5;
   }
-  .bubble .emoji { font-size: 26px; }
-  .bubble.b1 { top: 60px; left: -210px; }
-  .bubble.b2 { bottom: 90px; right: -160px; }
+  .bubble .emoji { font-size: 19px; }
+  .bubble.b1 { top: 30px; left: -150px; }
+  .bubble.b2 { bottom: 50px; right: -130px; }
 
 </style>
 </head>
@@ -352,76 +341,76 @@
 <div class="cover">
   <div class="ring r1"></div>
   <div class="ring r2"></div>
-  <div class="ring r3"></div>
   <div class="sprout"></div>
 
-  <div class="left">
-    <div class="brand">
-      <div class="mark">
-        <!-- simple caret/roof logomark -->
-        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M9 32 L24 14 L39 32" stroke="white" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
-          <circle cx="24" cy="38" r="3" fill="white"/>
-        </svg>
+  <div class="inner">
+    <div class="left">
+      <div class="brand">
+        <div class="mark">
+          <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 32 L24 14 L39 32" stroke="white" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="24" cy="38" r="3" fill="white"/>
+          </svg>
+        </div>
+        <div class="name">Kindred</div>
       </div>
-      <div class="name">Kindred</div>
+
+      <h1>Share with<br/>your <span class="accent">neighbours</span>.</h1>
+      <p class="sub">Give, lend &amp; borrow everyday things — for free. Build real community, one kindness at a time.</p>
+
+      <div class="pills">
+        <div class="pill"><span class="tick">✓</span> No buying or selling</div>
+        <div class="pill"><span class="tick">✓</span> Nearby only</div>
+        <div class="pill"><span class="tick">✓</span> Earn Kindness Points</div>
+      </div>
+
+      <div class="nz-tag">Built in Aotearoa New Zealand</div>
     </div>
 
-    <h1>Share with<br/>your <span class="accent">neighbours</span>.</h1>
-    <p class="sub">Give, lend &amp; borrow everyday things — for free. Build real community, one kindness at a time.</p>
+    <div class="right">
+      <div class="bubble b1"><span class="emoji">🌱</span> Less landfill</div>
+      <div class="bubble b2"><span class="emoji">🤝</span> Know your neighbours</div>
 
-    <div class="pills">
-      <div class="pill"><span class="tick">✓</span> No buying or selling</div>
-      <div class="pill"><span class="tick">✓</span> Nearby only</div>
-      <div class="pill"><span class="tick">✓</span> Earn Kindness Points</div>
-    </div>
-  </div>
-
-  <div class="nz-tag">Built in Aotearoa New Zealand</div>
-
-  <div class="right">
-    <div class="bubble b1"><span class="emoji">🌱</span> Less landfill</div>
-    <div class="bubble b2"><span class="emoji">🤝</span> Know your neighbours</div>
-
-    <div class="phone">
-      <div class="screen">
-        <div class="screen-header">
-          <div class="hello">Kia ora,</div>
-          <div class="user">Mia 🌿</div>
-          <div class="kp">
-            <span>Kindness Points</span>
-            <strong>1,240 🔥</strong>
-          </div>
-        </div>
-        <div class="screen-body">
-          <div class="card">
-            <div class="thumb t-food">🥬</div>
-            <div class="body">
-              <div class="title">Garden veg — spinach &amp; silverbeet</div>
-              <div class="meta"><span class="badge give">Give</span> 0.4 km away</div>
+      <div class="phone">
+        <div class="screen">
+          <div class="screen-header">
+            <div class="hello">Kia ora,</div>
+            <div class="user">Mia 🌿</div>
+            <div class="kp">
+              <span>Kindness Points</span>
+              <strong>1,240 🔥</strong>
             </div>
           </div>
-          <div class="card">
-            <div class="thumb t-baby">👶</div>
-            <div class="body">
-              <div class="title">Baby carrier (size 0–12m)</div>
-              <div class="meta"><span class="badge need">Need</span> 1.1 km away</div>
+          <div class="screen-body">
+            <div class="card">
+              <div class="thumb t-food">🥬</div>
+              <div class="body">
+                <div class="title">Garden spinach &amp; silverbeet</div>
+                <div class="meta"><span class="badge give">Give</span> 0.4 km</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="thumb t-baby">👶</div>
+              <div class="body">
+                <div class="title">Baby carrier (0–12m)</div>
+                <div class="meta"><span class="badge need">Need</span> 1.1 km</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="thumb t-tools">🛠️</div>
+              <div class="body">
+                <div class="title">Cordless drill — lend</div>
+                <div class="meta"><span class="badge give">Lend</span> 0.8 km</div>
+              </div>
             </div>
           </div>
-          <div class="card">
-            <div class="thumb t-tools">🛠️</div>
-            <div class="body">
-              <div class="title">Cordless drill — lend for weekend</div>
-              <div class="meta"><span class="badge give">Lend</span> 0.8 km away</div>
-            </div>
+          <div class="tabs">
+            <div class="t active"><div class="icon"></div>Activity</div>
+            <div class="t"><div class="icon"></div>Browse</div>
+            <div class="t"><div class="icon"></div>Messages</div>
+            <div class="t"><div class="icon"></div>Points</div>
+            <div class="t"><div class="icon"></div>Profile</div>
           </div>
-        </div>
-        <div class="tabs">
-          <div class="t active"><div class="icon"></div>Activity</div>
-          <div class="t"><div class="icon"></div>Browse</div>
-          <div class="t"><div class="icon"></div>Messages</div>
-          <div class="t"><div class="icon"></div>Points</div>
-          <div class="t"><div class="icon"></div>Profile</div>
         </div>
       </div>
     </div>
