@@ -20,7 +20,7 @@ const executablePath = fallbacks.find(p => fs.existsSync(p));
 const browser = await chromium.launch(executablePath ? { executablePath } : {});
 const context = await browser.newContext({
   viewport: { width: WIDTH, height: HEIGHT },
-  deviceScaleFactor: 2,
+  deviceScaleFactor: 1,
 });
 const page = await context.newPage();
 await page.goto('file://' + htmlPath, { waitUntil: 'networkidle' });
