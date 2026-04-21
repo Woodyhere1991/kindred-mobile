@@ -1,0 +1,13 @@
+{
+  "name": "kindred-landing",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Landing assets for Kindred (FB cover, social cards).",
+  "type": "module",
+  "scripts": {
+    "render:fb": "node render-fb-cover.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.55.0"
+  }
+}
